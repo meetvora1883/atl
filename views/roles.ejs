@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Roles & Permissions' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'roles' }) %>
+
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+
+      <div class="container page-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+          <div>
+            <h2 style="margin:0 0 4px;">Roles & Permissions</h2>
+            <p class="text-muted" style="margin:0;font-size:0.9rem;">
+              Manage roles, assign permissions, customize colors.
+            </p>
+          </div>
+
+          <button class="btn btn-primary btn-sm" onclick="showCreateRoleModal()">
+            <i class="bi bi-plus"></i>
+            New Role
+          </button>
+        </div>
+
+        <div class="glass card">
+          <div id="roles-list" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="skeleton" style="height:60px;border-radius:10px;"></div>
+            <div class="skeleton" style="height:60px;border-radius:10px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="role-modal" class="modal" style="display:none;">
+    <div class="modal-box">
+      <h3>Create Role</h3>
+
+      <div class="field">
+        <label>Role Name</label>
+        <input id="role-name" type="text" placeholder="e.g. Moderator">
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <textarea id="role-desc" placeholder="What is this role for?"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Color</label>
+        <div style="display:flex;gap:8px;">
+          <input id="role-color" type="color" value="#5865f2" style="width:50px;">
+          <input id="role-color-text" type="text" value="#5865f2" style="flex:1;">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button class="btn btn-primary" onclick="createRole()">Create</button>
+        <button class="btn btn-ghost" onclick="closeModal('role-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-box {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 24px;
+      width: 90%;
+      max-width: 420px;
+    }
+
+    .role-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,.03);
+      border-radius: 10px;
+    }
+
+    .role-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+  </style>
+
+  <%- include('partials/scripts') %>
+
+  <script>
+    const CSRF_TOKEN = "<%= csrfToken || '' %>";
+
+    console.log('roles.ejs loaded');
+    console.log('csrf:', CSRF_TOKEN);
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function showCreateRoleModal() {
+      console.log('opening modal');
+      document.getElementById('role-modal').style.display = 'flex';
+    }
+
+    document.getElementById('role-color')?.addEventListener('change', (e) => {
+      document.getElementById('role-color-text').value = e.target.value;
+    });
+
+    async function loadRoles() {
+      console.log('loading roles...');
+
+      try {
+        const res = await fetch('/api/roles');
+        console.log('GET /api/roles', res.status);
+
+        if (!res.ok) {
+          console.error(await res.text());
+          return;
+        }
+
+        const data = await res.json();
+        console.log(data);
+
+        const html = data.roles.map(r => `
+          <div class="role-item">
+            <div class="role-color" style="background:${r.color}"></div>
+
+            <div style="flex:1;">
+              <strong>${r.name}</strong>
+              <p class="text-muted" style="margin:2px 0 0;font-size:0.8rem;">
+                ${r.userCount} users · ${r.description || 'No description'}
+              </p>
+            </div>
+
+            <button class="btn btn-ghost btn-sm"
+                    onclick="editRole(${r.id})">
+              Edit
+            </button>
+          </div>
+        `).join('');
+
+        document.getElementById('roles-list').innerHTML = html;
+      } catch (err) {
+        console.error('loadRoles error:', err);
+      }
+    }
+
+    async function createRole() {
+      console.log('Create clicked');
+
+      const name = document.getElementById('role-name').value.trim();
+      const description = document.getElementById('role-desc').value;
+      const color = document.getElementById('role-color').value;
+
+      console.log({ name, description, color });
+
+      if (!name) {
+        alert('Role name is required');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/roles', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': CSRF_TOKEN
+          },
+          body: JSON.stringify({
+            name,
+            description,
+            color
+          })
+        });
+
+        console.log('POST status:', res.status);
+
+        const text = await res.text();
+        console.log('Response:', text);
+
+        if (!res.ok) {
+          alert('Failed to create role');
+          return;
+        }
+
+        closeModal('role-modal');
+        loadRoles();
+      } catch (err) {
+        console.error('createRole error:', err);
+      }
+    }
+
+    function editRole(id) {
+      window.location.href = `/role-editor?id=${id}`;
+    }
+
+    loadRoles();
+  </script>
+</body>
+</html>

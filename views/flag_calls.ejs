@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Flag Call System' }) %>
+  <style>
+    /* ----- Global overrides ----- */
+    .btn {
+      min-height: 48px;
+      max-height: 56px;
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-sizing: border-box;
+      transition: all 0.15s ease;
+      padding: 0 18px;
+      font-weight: 600;
+    }
+    .btn .spinner {
+      display: none;
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .btn.loading .spinner { display: inline-block; }
+    .btn .btn-text {
+      display: inline-block;
+      white-space: nowrap;
+      flex: 0 1 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .flag-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .flag-stat-card {
+      text-align: center;
+      padding: 16px 12px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(16px);
+    }
+    .flag-stat-card .emoji { font-size: 1.8rem; }
+    .flag-stat-card .count { font-size: 2rem; font-weight: 700; font-family: var(--font-mono); }
+    .flag-stat-card .label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .admin-grid .btn {
+      width: 100%;
+      min-height: 48px;
+      max-height: 56px;
+      height: 48px;
+    }
+    .admin-grid .btn:last-child { grid-column: 1 / -1; }
+
+    .channel-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .channel-row .channel-select-wrap {
+      flex: 1;
+      min-width: 180px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 0 12px;
+    }
+    .channel-row .channel-select-wrap i {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+    .channel-row .channel-select-wrap select {
+      flex: 1;
+      padding: 10px 0;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      outline: none;
+    }
+
+    .activity-feed { max-height: 200px; overflow-y: auto; font-size: 0.9rem; }
+    .activity-item {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .activity-item .time { color: var(--text-muted); font-size: 0.75rem; }
+
+    .results-group { margin-bottom: 16px; }
+    .results-group .header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 0.85rem;
+    }
+    .player-item img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+
+    .search-result {
+      padding: 6px 10px;
+      cursor: pointer;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+    .search-result:hover { background: var(--glass-strong); }
+    .search-result img { width: 32px; height: 32px; border-radius: 50%; }
+    .search-result .info { flex: 1; display: flex; flex-direction: column; }
+    .search-result .info .name { font-weight: 600; }
+    .search-result .info .sub { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ----- Modals with sticky footer ----- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      overflow-y: auto;
+      padding: 24px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      width: 95%;
+      max-width: 820px;
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: auto;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(20px);
+      transition: transform 0.22s ease-out, opacity 0.22s ease-out;
+      opacity: 0;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal-overlay.open .modal-box {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .modal-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      background: var(--bg-2);
+      z-index: 10;
+    }
+    .modal-header h3 { margin: 0; font-size: 1.15rem; }
+    .modal-header .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .modal-header .close-btn:hover { background: rgba(255,255,255,0.08); color: var(--danger); }
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-shrink: 0;
+      background: var(--bg-2);
+      z-index: 10;
+    }
+
+    /* ----- Message Status Card (new) ----- */
+    .status-card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      backdrop-filter: blur(16px);
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 16px 24px;
+    }
+    .status-card .status-icon {
+      font-size: 2rem;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .status-card .status-main { flex: 1; min-width: 200px; }
+    .status-card .status-main .title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-card .status-main .title .badge {
+      font-size: 0.7rem;
+      padding: 2px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-card .status-main .sub { color: var(--text-muted); font-size: 0.9rem; margin-top: 2px; }
+    .status-card .status-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 24px;
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+    .status-card .status-details .label { color: var(--text-muted); }
+    .status-card .status-details .value { font-family: var(--font-mono); }
+    .status-card .status-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .status-card .status-actions .btn { height: 36px; min-height: 36px; font-size: 0.8rem; padding: 0 14px; }
+
+    /* Active / Deleted / No Message states */
+    .status-card.active .status-icon { color: #22c55e; }
+    .status-card.active .badge { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid #22c55e; }
+    .status-card.deleted .status-icon { color: #ef4444; }
+    .status-card.deleted .badge { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444; }
+    .status-card.none .status-icon { color: #f59e0b; }
+    .status-card.none .badge { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid #f59e0b; }
+
+    /* ----- Send Discord Modal: two columns ----- */
+    .send-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .send-grid .send-left { display: flex; flex-direction: column; gap: 16px; }
+    .send-grid .send-right { display: flex; flex-direction: column; gap: 12px; }
+
+    .send-field label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    .send-field input, .send-field textarea, .send-field select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+    }
+    .send-field textarea { resize: vertical; min-height: 60px; }
+    .send-field input:focus, .send-field textarea:focus { outline: none; border-color: var(--accent-cyan); }
+
+    .embed-preview {
+      background: var(--bg-1);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid var(--glass-border);
+    }
+    .embed-preview .preview-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--accent-cyan);
+    }
+    .embed-preview .preview-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin: 4px 0 8px;
+    }
+    .embed-preview .preview-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 12px;
+      font-size: 0.85rem;
+    }
+    .embed-preview .preview-fields span { color: var(--text-primary); }
+    .embed-preview .preview-footer {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-style: italic;
+    }
+    .embed-preview .preview-color-dot {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+
+    .button-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .button-preview .btn-preview {
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+    }
+    .button-preview .btn-preview.primary { background: #5865f2; border-color: #5865f2; color: #fff; }
+    .button-preview .btn-preview.success { background: #57e39a; border-color: #57e39a; color: #000; }
+    .button-preview .btn-preview.secondary { background: #4a4d5e; border-color: #4a4d5e; color: #fff; }
+    .button-preview .btn-preview.danger { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    /* ----- Custom Color Picker ----- */
+    .color-picker-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .color-picker-wrap .color-swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 2px solid var(--glass-border);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.15s;
+    }
+    .color-picker-wrap .color-swatch:hover { border-color: var(--accent-cyan); }
+    .color-picker-wrap .color-hex {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: var(--glass);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      width: 80px;
+    }
+    .color-picker-popup {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      z-index: 50;
+      display: none;
+      width: 220px;
+    }
+    .color-picker-popup.open { display: block; }
+    .color-picker-popup .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .color-picker-popup .preset-grid .preset {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .color-picker-popup .preset-grid .preset:hover { border-color: var(--accent-cyan); }
+    .color-picker-popup .preset-grid .preset.active { border-color: #fff; }
+    .color-picker-popup .custom-input {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .color-picker-popup .custom-input input {
+      flex: 1;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    .mode-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .mode-card {
+      padding: 10px 14px;
+      border: 2px solid var(--glass-border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--glass);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .mode-card:hover { border-color: var(--accent-cyan); }
+    .mode-card.selected { border-color: var(--accent-cyan); background: rgba(79,209,255,0.08); }
+    .mode-card .mode-title { font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+    .mode-card .mode-desc { font-size: 0.75rem; color: var(--text-muted); }
+    .mode-card .mode-radio { display: none; }
+    .mode-card.selected .mode-radio { display: inline; }
+
+    .badge-status {
+      display: inline-block;
+      padding: 2px 12px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge-status.existing { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid #22c55e; }
+    .badge-status.deleted { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444; }
+    .badge-status.none { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid #f59e0b; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .status-badge.open { background: rgba(46,204,113,0.15); color: var(--accent-green); }
+    .status-badge.locked { background: rgba(231,76,60,0.15); color: var(--danger); }
+    .status-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    .error-banner {
+      background: rgba(255,107,107,0.15);
+      border: 1px solid var(--danger);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--danger);
+      margin-bottom: 16px;
+      display: none;
+    }
+    .error-banner .retry-btn { margin-left: 12px; }
+    .debug-info {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--bg-1);
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .btn-large {
+      padding: 10px 28px;
+      font-size: 1rem;
+      min-width: 130px;
+    }
+
+    @media (max-width: 768px) {
+      .send-grid { grid-template-columns: 1fr; }
+      .mode-cards { grid-template-columns: 1fr; }
+      .admin-grid { grid-template-columns: 1fr; }
+      .admin-grid .btn:last-child { grid-column: 1; }
+      .status-card { flex-direction: column; }
+      .modal-box { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'flag_calls' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <main class="page-content">
+        <div class="container">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+            <h1 style="margin:0;">🏳 Flag Call System</h1>
+            <div id="statusBadge" class="status-badge open">
+              <span class="dot"></span>
+              <span id="statusText">Loading…</span>
+            </div>
+          </div>
+
+          <!-- Error banner -->
+          <div class="error-banner" id="errorBanner">
+            <span id="errorMessage">Failed to load data.</span>
+            <button class="btn btn-sm btn-danger retry-btn" id="retryBtn">🔄 Retry</button>
+            <div class="debug-info" id="debugInfo" style="display:none;"></div>
+          </div>
+
+          <!-- Message Status Card (polished) -->
+          <div class="status-card none" id="statusCard">
+            <div class="status-icon" id="statusIcon">➕</div>
+            <div class="status-main">
+              <div class="title">
+                <span id="statusTitle">No Message</span>
+                <span class="badge" id="statusBadgeMsg">NO MESSAGE</span>
+              </div>
+              <div class="sub" id="statusSub">No Discord message has been created yet.</div>
+              <div class="status-details">
+                <span><span class="label">Message ID:</span> <span class="value" id="msgIdDisplay">—</span></span>
+                <span><span class="label">Channel:</span> <span class="value" id="msgChannelDisplay">—</span></span>
+                <span><span class="label">Last Updated:</span> <span class="value" id="msgUpdatedDisplay">—</span></span>
+              </div>
+            </div>
+            <div class="status-actions" id="statusActions">
+              <!-- dynamic buttons -->
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="flag-stats-grid">
+            <div class="flag-stat-card">
+              <div class="emoji">📡</div>
+              <div class="count" id="statChannel" style="font-size:1rem;">—</div>
+              <div class="label">Discord Channel</div>
+            </div>
+            <div class="flag-stat-card">
+              <div class="emoji">🆔</div>
+              <div class="count" id="statMessage" style="font-size:1rem;">—</div>
+              <div class="label">Message ID</div>
+            </div>
+            <div class="flag-stat-card">
+              <div class="emoji">🗳️</div>
+              <div class="count" id="statTotal">0</div>
+              <div class="label">Total Votes</div>
+            </div>
+            <div class="flag-stat-card">
+              <div class="emoji">👥</div>
+              <div class="count" id="statUnique">0</div>
+              <div class="label">Unique Voters</div>
+            </div>
+          </div>
+
+          <!-- Flag counts -->
+          <div class="flag-stats-grid">
+            <div class="flag-stat-card">
+              <div class="emoji">🏳</div>
+              <div class="count" id="count2">0</div>
+              <div class="label">2 Flags</div>
+            </div>
+            <div class="flag-stat-card">
+              <div class="emoji">🏳🏳🏳</div>
+              <div class="count" id="count3">0</div>
+              <div class="label">3 Flags</div>
+            </div>
+            <div class="flag-stat-card">
+              <div class="emoji">🏳🏳🏳🏳</div>
+              <div class="count" id="count4">0</div>
+              <div class="label">4 Flags</div>
+            </div>
+            <div class="flag-stat-card">
+              <div class="emoji">🏳🏳🏳🏳🏳</div>
+              <div class="count" id="count5">0</div>
+              <div class="label">5 Flags</div>
+            </div>
+          </div>
+
+          <!-- Activity feed -->
+          <div class="glass card">
+            <h3 style="margin-top:0;">📋 Recent Activity</h3>
+            <div class="activity-feed" id="activityFeed">
+              <div class="text-muted">No activity yet.</div>
+            </div>
+          </div>
+
+          <!-- Live results -->
+          <div class="glass card">
+            <h3 style="margin-top:0;">📊 Live Results</h3>
+            <div id="resultsContainer">
+              <div class="text-muted">Loading results…</div>
+            </div>
+          </div>
+
+          <!-- Admin Controls -->
+          <% if (user && user.permissions && user.permissions.includes('manage_flag_calls')) { %>
+          <div class="glass card">
+            <h3 style="margin-top:0;">⚙️ Admin Controls</h3>
+            <div class="admin-grid">
+              <button class="btn btn-primary" id="lockToggleBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">🔒 Lock</span>
+              </button>
+              <button class="btn btn-danger" id="restartBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">🔄 Restart</span>
+              </button>
+              <button class="btn btn-primary" id="resultBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">📊 Results</span>
+              </button>
+              <button class="btn btn-primary" id="changeVoteBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">✏️ Change Vote</span>
+              </button>
+              <button class="btn btn-primary" id="sendDiscordBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">📤 Send Discord</span>
+              </button>
+              <button class="btn btn-primary" id="settingsBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">⚙️ Button Settings</span>
+              </button>
+            </div>
+            <hr style="border-color:var(--glass-border); margin:16px 0;">
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
+              <h4 style="margin:0;">📡 Discord Channel</h4>
+              <span id="channelStatus" class="badge" style="background:rgba(255,107,107,0.2);color:var(--danger); font-size:0.75rem; padding:2px 10px; border-radius:999px;">🔴 Not Connected</span>
+              <span style="font-size:0.8rem; color:var(--text-muted);" id="channelNameDisplay">None selected</span>
+            </div>
+            <div class="channel-row">
+              <div class="channel-select-wrap">
+                <i class="bi bi-discord"></i>
+                <select id="channelSelect"><option value="">Loading channels…</option></select>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="refreshChannelsBtn">🔄 Refresh</button>
+              <button class="btn btn-primary btn-sm" id="saveChannelBtn">💾 Save</button>
+              <button class="btn btn-ghost btn-sm" id="testChannelBtn">📨 Test</button>
+            </div>
+          </div>
+          <% } %>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ====== Modals ====== -->
+  <!-- Results Modal -->
+  <div class="modal-overlay" id="resultModal">
+    <div class="modal-box" style="max-width:600px;">
+      <div class="modal-header"><h3>📊 Detailed Results</h3><button class="close-btn" data-close="resultModal">&times;</button></div>
+      <div class="modal-body" id="resultModalBody"><div class="text-muted">Loading…</div></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="copyResultBtn">📋 Copy</button>
+        <button class="btn btn-ghost" data-close="resultModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Vote Modal -->
+  <div class="modal-overlay" id="changeVoteModal">
+    <div class="modal-box" style="max-width:500px;">
+      <div class="modal-header"><h3>✏️ Change Vote</h3><button class="close-btn" data-close="changeVoteModal">&times;</button></div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Search Player</label>
+          <input type="text" class="search-input" id="changeSearch" placeholder="Type name or Discord ID…" />
+        </div>
+        <div id="changeResults" style="margin-top:8px;"><div class="text-muted">Type to search players…</div></div>
+        <div id="changeVoteForm" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--glass-border);">
+          <div class="field"><label>Selected Player</label><input type="text" id="selectedPlayerName" disabled /></div>
+          <div class="field"><label>Current Vote</label><input type="text" id="currentVote" disabled /></div>
+          <div class="field"><label>New Vote</label>
+            <select id="newVoteSelect">
+              <option value="2">2 Flags</option>
+              <option value="3">3 Flags</option>
+              <option value="4">4 Flags</option>
+              <option value="5">5 Flags</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="changeVoteModal">Cancel</button>
+        <button class="btn btn-primary" id="saveVoteBtn" disabled>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Discord Modal (two columns) -->
+  <div class="modal-overlay" id="sendDiscordModal">
+    <div class="modal-box" style="max-width:860px;">
+      <div class="modal-header"><h3>📤 Send Flag Call to Discord</h3><button class="close-btn" data-close="sendDiscordModal">&times;</button></div>
+      <div class="modal-body">
+        <div class="send-grid">
+          <!-- LEFT: inputs -->
+          <div class="send-left">
+            <div class="send-field">
+              <label><i class="bi bi-discord"></i> Channel</label>
+              <div class="channel-select-wrap" style="background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; padding:0 12px; display:flex; align-items:center;">
+                <i class="bi bi-hash" style="color:var(--text-muted);"></i>
+                <select id="sendChannelSelect" style="flex:1; padding:8px 0; background:transparent; border:none; color:var(--text-primary); outline:none; font-family:var(--font-body);">
+                  <option value="">Select a channel…</option>
+                </select>
+              </div>
+            </div>
+            <div class="send-field">
+              <label><i class="bi bi-pencil"></i> Title</label>
+              <input type="text" id="sendTitle" value="Flag Call Results" />
+            </div>
+            <div class="send-field">
+              <label><i class="bi bi-text-paragraph"></i> Description</label>
+              <textarea id="sendDescription" rows="2" placeholder="Live voting results…">Live voting results for the current flag call.</textarea>
+            </div>
+            <div class="send-field">
+              <label><i class="bi bi-pencil"></i> Footer</label>
+              <input type="text" id="sendFooter" value="Click a button below to vote" />
+            </div>
+            <div class="send-field">
+              <label><i class="bi bi-palette"></i> Embed Color</label>
+              <div class="color-picker-wrap">
+                <div class="color-swatch" id="colorSwatch" style="background:#2ecc71;"></div>
+                <input type="text" class="color-hex" id="colorHex" value="#2ecc71" />
+                <div class="color-picker-popup" id="colorPickerPopup">
+                  <div class="preset-grid" id="presetGrid"></div>
+                  <div class="custom-input">
+                    <input type="text" id="colorCustomHex" placeholder="#HEX" />
+                    <button class="btn btn-sm btn-ghost" id="colorApplyBtn">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="send-field">
+              <label><i class="bi bi-arrow-right-circle"></i> Action</label>
+              <div class="mode-cards" id="modeCards">
+                <div class="mode-card selected" data-mode="create">
+                  <div class="mode-title"><span class="mode-radio">◉</span> Create New</div>
+                  <div class="mode-desc">Creates a new embed.</div>
+                </div>
+                <div class="mode-card" data-mode="update">
+                  <div class="mode-title"><span class="mode-radio">○</span> Update Existing</div>
+                  <div class="mode-desc">Updates the previous message.</div>
+                </div>
+              </div>
+              <div style="margin-top:6px;">
+                <span id="sendModeHint" class="badge-status existing">🟢 Existing message found</span>
+              </div>
+            </div>
+          </div>
+          <!-- RIGHT: preview -->
+          <div class="send-right">
+            <div class="embed-preview">
+              <div class="preview-title" id="previewTitle">Flag Call Results</div>
+              <div class="preview-desc" id="previewDesc">Live voting results for the current flag call.</div>
+              <div class="preview-fields">
+                <span>🏳 2 Flags: <strong id="pCount2">0</strong></span>
+                <span>🏳🏳🏳 3 Flags: <strong id="pCount3">0</strong></span>
+                <span>🏳🏳🏳🏳 4 Flags: <strong id="pCount4">0</strong></span>
+                <span>🏳🏳🏳🏳🏳 5 Flags: <strong id="pCount5">0</strong></span>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Total: <strong id="pTotal">0</strong></div>
+              <div class="preview-footer" id="previewFooter">Click a button below to vote</div>
+              <div style="margin-top:4px;">
+                <span class="preview-color-dot" id="previewColorDot" style="background:#2ecc71;"></span>
+                <span style="font-size:0.75rem; color:var(--text-muted);" id="previewColorHex">#2ecc71</span>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:0.8rem; color:var(--text-muted);">Button Preview</label>
+              <div class="button-preview" id="buttonPreview">
+                <span class="btn-preview primary">🏳 2 Flags</span>
+                <span class="btn-preview success">🏳 3 Flags</span>
+                <span class="btn-preview secondary">🏳 4 Flags</span>
+                <span class="btn-preview danger">🏳 5 Flags</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="sendDiscordModal">Cancel</button>
+        <button class="btn btn-primary btn-large" id="sendDiscordConfirmBtn">🚀 Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Button Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box" style="max-width:600px;">
+      <div class="modal-header"><h3>⚙️ Voting Button Settings</h3><button class="close-btn" data-close="settingsModal">&times;</button></div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Embed Color</label>
+          <div class="color-picker-wrap">
+            <div class="color-swatch" id="settingsColorSwatch" style="background:#2ecc71;"></div>
+            <input type="text" class="color-hex" id="settingsColorHex" value="#2ecc71" />
+            <div class="color-picker-popup" id="settingsColorPopup">
+              <div class="preset-grid" id="settingsPresetGrid"></div>
+              <div class="custom-input">
+                <input type="text" id="settingsColorCustomHex" placeholder="#HEX" />
+                <button class="btn btn-sm btn-ghost" id="settingsColorApplyBtn">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <hr style="border-color:var(--glass-border);">
+        <h4>Button Labels & Emojis</h4>
+        <div class="field"><label>2 Flags Label</label><input type="text" id="btnLabel2" value="2 Flags" /></div>
+        <div class="field"><label>2 Flags Emoji</label><input type="text" id="btnEmoji2" value="🏳" /></div>
+        <div class="field"><label>3 Flags Label</label><input type="text" id="btnLabel3" value="3 Flags" /></div>
+        <div class="field"><label>3 Flags Emoji</label><input type="text" id="btnEmoji3" value="🏳" /></div>
+        <div class="field"><label>4 Flags Label</label><input type="text" id="btnLabel4" value="4 Flags" /></div>
+        <div class="field"><label>4 Flags Emoji</label><input type="text" id="btnEmoji4" value="🏳" /></div>
+        <div class="field"><label>5 Flags Label</label><input type="text" id="btnLabel5" value="5 Flags" /></div>
+        <div class="field"><label>5 Flags Emoji</label><input type="text" id="btnEmoji5" value="🏳" /></div>
+        <hr style="border-color:var(--glass-border);">
+        <h4>Button Colors</h4>
+        <div class="field"><label>2 Flags Color</label>
+          <select id="btnColor2">
+            <option value="1">Primary (Blurple)</option>
+            <option value="2">Secondary (Grey)</option>
+            <option value="3">Success (Green)</option>
+            <option value="4">Danger (Red)</option>
+          </select>
+        </div>
+        <div class="field"><label>3 Flags Color</label>
+          <select id="btnColor3">
+            <option value="1">Primary (Blurple)</option>
+            <option value="2">Secondary (Grey)</option>
+            <option value="3">Success (Green)</option>
+            <option value="4">Danger (Red)</option>
+          </select>
+        </div>
+        <div class="field"><label>4 Flags Color</label>
+          <select id="btnColor4">
+            <option value="1">Primary (Blurple)</option>
+            <option value="2">Secondary (Grey)</option>
+            <option value="3">Success (Green)</option>
+            <option value="4">Danger (Red)</option>
+          </select>
+        </div>
+        <div class="field"><label>5 Flags Color</label>
+          <select id="btnColor5">
+            <option value="1">Primary (Blurple)</option>
+            <option value="2">Secondary (Grey)</option>
+            <option value="3">Success (Green)</option>
+            <option value="4">Danger (Red)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="settingsModal">Cancel</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box" style="max-width:420px;">
+      <div class="modal-header"><h3 id="confirmTitle">Confirm</h3><button class="close-btn" data-close="confirmModal">&times;</button></div>
+      <div class="modal-body"><p id="confirmMessage">Are you sure?</p></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="confirmModal">Cancel</button>
+        <button class="btn btn-danger" id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <script>
+    // ---- Override date format ----
+    if (typeof window.__refreshDates === 'function') {
+      window.__refreshDates = function() {};
+    }
+    clearTimeout(window._dateFormatTimer);
+    window._dateFormatTimer = 0;
+
+    // ---- CSRF & API ----
+    var csrfToken = window.__CSRF_TOKEN__ || '';
+    var API_BASE = '/api/warboard/flags';
+
+    // ---- Toast ----
+    function showToast(type, title, message) {
+      var container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        container.style.position = 'fixed';
+        container.style.bottom = '24px';
+        container.style.right = '24px';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '10px';
+        container.style.zIndex = '999999';
+        container.style.maxWidth = '340px';
+        container.style.pointerEvents = 'none';
+        document.body.appendChild(container);
+      }
+      var el = document.createElement('div');
+      el.className = 'toast toast-' + type;
+      el.style.pointerEvents = 'auto';
+      el.style.background = 'rgba(15,12,28,0.97)';
+      el.style.border = '1px solid var(--glass-border)';
+      el.style.borderRadius = '12px';
+      el.style.padding = '14px 16px';
+      el.style.display = 'flex';
+      el.style.alignItems = 'flex-start';
+      el.style.gap = '10px';
+      el.style.transform = 'translateX(120%)';
+      el.style.opacity = '0';
+      el.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      var icons = { success: 'bi-check-circle', warning: 'bi-exclamation-triangle', error: 'bi-x-circle', info: 'bi-info-circle' };
+      el.innerHTML = '<i class="bi ' + (icons[type] || icons.info) + '" style="font-size:1.1rem;margin-top:2px;"></i>' +
+        '<div style="flex:1;"><div style="font-weight:600;font-size:0.88rem;">' + title + '</div>' +
+        (message ? '<div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">' + message + '</div>' : '') +
+        '</div>' +
+        '<button class="toast-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;">&times;</button>';
+      container.appendChild(el);
+      requestAnimationFrame(function() {
+        el.style.transform = 'translateX(0)';
+        el.style.opacity = '1';
+      });
+      var remove = function() {
+        el.style.transform = 'translateX(120%)';
+        el.style.opacity = '0';
+        setTimeout(function() { if (el.parentNode) el.remove(); }, 300);
+      };
+      el.querySelector('.toast-close').addEventListener('click', remove);
+      setTimeout(remove, 5000);
+    }
+
+    // ---- API fetch ----
+    async function apiFetch(path, options) {
+      options = options || {};
+      var url = API_BASE + path;
+      try {
+        var res = await fetch(url, {
+          method: options.method || 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken,
+            ...(options.headers || {})
+          },
+          credentials: 'include',
+          body: options.body || undefined
+        });
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { throw new Error('Server returned invalid JSON. Status: ' + res.status); }
+        if (!res.ok || (data && data.ok === false)) throw new Error(data.error || 'HTTP ' + res.status);
+        return data;
+      } catch (err) {
+        console.error('API error:', err.message);
+        throw err;
+      }
+    }
+
+    // ---- State ----
+    var currentUser = <%- JSON.stringify(user) %>;
+    var hasManage = currentUser && currentUser.permissions && currentUser.permissions.includes('manage_flag_calls');
+    var selectedChangePlayer = null;
+    var autoRefreshInterval = null;
+    var firstLoad = true;
+    var actionRunning = false;
+    var currentMessageId = null;
+    var currentMessageExists = false;
+    var currentCounts = { 2:0, 3:0, 4:0, 5:0 };
+    var currentTotal = 0;
+    var discordChannels = [];
+    var isChannelsLoaded = false;
+
+    // ---- Helper: set button loading ----
+    function setButtonLoading(btn, loading, text) {
+      if (loading) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+        var ts = btn.querySelector('.btn-text');
+        if (ts) ts.textContent = text || 'Loading...';
+      } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        var orig = btn.dataset.originalText;
+        if (orig) {
+          var ts = btn.querySelector('.btn-text');
+          if (ts) ts.textContent = orig;
+        }
+      }
+    }
+    document.querySelectorAll('.admin-grid .btn').forEach(function(b) {
+      var ts = b.querySelector('.btn-text');
+      if (ts) b.dataset.originalText = ts.textContent.trim();
+    });
+
+    // ---- Modal helpers ----
+    function openModal(id) { document.body.style.overflow = 'hidden'; document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.body.style.overflow = ''; document.getElementById(id).classList.remove('open'); }
+    document.querySelectorAll('[data-close]').forEach(function(el) {
+      el.addEventListener('click', function() { closeModal(this.dataset.close); });
+    });
+    document.querySelectorAll('.modal-overlay').forEach(function(el) {
+      el.addEventListener('click', function(e) { if (e.target === this) closeModal(this.id); });
+    });
+
+    // ---- Confirm modal ----
+    function openConfirmModal(opts) {
+      var modal = document.getElementById('confirmModal');
+      document.getElementById('confirmTitle').textContent = opts.title || 'Confirm';
+      document.getElementById('confirmMessage').textContent = opts.message || 'Are you sure?';
+      document.getElementById('confirmOk').onclick = function() {
+        closeModal('confirmModal');
+        if (opts.onConfirm) opts.onConfirm();
+      };
+      openModal('confirmModal');
+    }
+
+    // ---- Color picker helper ----
+    var presetColors = [
+      '#2ecc71','#22c55e','#16a34a','#22d3ee','#06b6d4','#0891b2','#3b82f6','#2563eb','#1d4ed8',
+      '#8b5cf6','#7c3aed','#6d28d9','#ec4899','#db2777','#be185d','#ef4444','#dc2626','#b91c1c',
+      '#f59e0b','#d97706','#b45309','#f97316','#ea580c','#c2410c','#e2e8f0','#94a3b8','#64748b'
+    ];
+
+    function initColorPicker(swatchId, hexId, popupId, presetGridId, customHexId, applyBtnId, targetInput) {
+      var swatch = document.getElementById(swatchId);
+      var hex = document.getElementById(hexId);
+      var popup = document.getElementById(popupId);
+      var grid = document.getElementById(presetGridId);
+      var customHex = document.getElementById(customHexId);
+      var applyBtn = document.getElementById(applyBtnId);
+
+      if (!swatch || !hex) return;
+
+      function setColor(color) {
+        swatch.style.background = color;
+        hex.value = color;
+        if (targetInput) targetInput.value = color;
+        // Update preview
+        if (typeof updatePreview === 'function') updatePreview();
+        // Update settings preview if modal open
+        var settingsColor = document.getElementById('settingsColorHex');
+        if (settingsColor && settingsColor.value === color) {
+          document.getElementById('settingsColorSwatch').style.background = color;
+        }
+        popup.classList.remove('open');
+      }
+
+      swatch.addEventListener('click', function(e) {
+        e.stopPropagation();
+        popup.classList.toggle('open');
+        // Build preset grid
+        if (!grid.hasChildNodes()) {
+          presetColors.forEach(function(c) {
+            var div = document.createElement('div');
+            div.className = 'preset';
+            div.style.background = c;
+            div.dataset.color = c;
+            div.addEventListener('click', function(e) {
+              e.stopPropagation();
+              setColor(c);
+            });
+            grid.appendChild(div);
+          });
+        }
+        // Highlight current color
+        grid.querySelectorAll('.preset').forEach(function(el) {
+          el.classList.toggle('active', el.dataset.color === hex.value);
+        });
+        customHex.value = hex.value.replace('#', '');
+      });
+
+      applyBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var val = customHex.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9a-f]{6}$/i.test(val)) {
+          setColor(val);
+        } else {
+          showToast('error', 'Invalid color', 'Please enter a valid hex color (e.g. #2ecc71)');
+        }
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!popup.contains(e.target) && e.target !== swatch) popup.classList.remove('open');
+      });
+
+      // Initial color from target input
+      if (targetInput && targetInput.value) {
+        setColor(targetInput.value);
+      }
+    }
+
+    // ---- Channel helpers ----
+    function populateChannelSelect(select) {
+      select.innerHTML = '<option value="">Select a channel…</option>';
+      discordChannels.forEach(function(ch) {
+        select.innerHTML += '<option value="' + ch.id + '">#' + ch.name + '</option>';
+      });
+    }
+
+    async function loadChannels() {
+      try {
+        var data = await apiFetch('/channels');
+        discordChannels = data.channels || [];
+        isChannelsLoaded = true;
+        populateChannelSelect(document.getElementById('channelSelect'));
+        populateChannelSelect(document.getElementById('sendChannelSelect'));
+        var status = await apiFetch('/status');
+        if (status.channelId) {
+          document.getElementById('channelSelect').value = status.channelId;
+          document.getElementById('sendChannelSelect').value = status.channelId;
+        }
+      } catch (e) {
+        showToast('error', 'Failed to load channels', e.message);
+      }
+    }
+
+    // ---- Load status ----
+    async function loadStatus() {
+      var data = await apiFetch('/status');
+      var badge = document.getElementById('statusBadge');
+      var text = document.getElementById('statusText');
+      if (data.locked) {
+        badge.className = 'status-badge locked';
+        text.textContent = '🔴 LOCKED';
+      } else {
+        badge.className = 'status-badge open';
+        text.textContent = '🟢 OPEN';
+      }
+
+      document.getElementById('statChannel').textContent = data.channelName ? '#' + data.channelName : '—';
+      document.getElementById('statMessage').textContent = data.messageId || '—';
+      document.getElementById('statTotal').textContent = data.total;
+      var unique = 0;
+      for (var k in data.counts) { if (data.counts.hasOwnProperty(k)) unique += data.counts[k]; }
+      document.getElementById('statUnique').textContent = unique;
+
+      document.getElementById('count2').textContent = data.counts[2] || 0;
+      document.getElementById('count3').textContent = data.counts[3] || 0;
+      document.getElementById('count4').textContent = data.counts[4] || 0;
+      document.getElementById('count5').textContent = data.counts[5] || 0;
+
+      currentCounts = data.counts;
+      currentTotal = data.total;
+      currentMessageId = data.messageId;
+      currentMessageExists = data.messageExists || false;
+
+      // Update status card
+      updateStatusCard(data);
+
+      // Update toggle button
+      var toggleBtn = document.getElementById('lockToggleBtn');
+      if (toggleBtn) {
+        var ts = toggleBtn.querySelector('.btn-text');
+        if (ts) {
+          if (data.locked) {
+            ts.textContent = '🔓 Unlock';
+            toggleBtn.className = 'btn btn-success';
+          } else {
+            ts.textContent = '🔒 Lock';
+            toggleBtn.className = 'btn btn-primary';
+          }
+          toggleBtn.dataset.originalText = ts.textContent;
+        }
+      }
+
+      var sendBtn = document.getElementById('sendDiscordBtn');
+      if (sendBtn) {
+        var st = sendBtn.querySelector('.btn-text');
+        if (st) {
+          st.textContent = data.messageId && data.messageExists ? '📤 Update Discord' : '📤 Create Discord';
+          sendBtn.dataset.originalText = st.textContent;
+        }
+      }
+
+      if (hasManage) {
+        var statusEl = document.getElementById('channelStatus');
+        var nameDisplay = document.getElementById('channelNameDisplay');
+        if (data.channelId) {
+          statusEl.textContent = '🟢 Connected';
+          statusEl.style.background = 'rgba(34,197,94,0.15)';
+          statusEl.style.color = '#22c55e';
+          nameDisplay.textContent = '#' + (data.channelName || 'Unknown');
+        } else {
+          statusEl.textContent = '🔴 Not Connected';
+          statusEl.style.background = 'rgba(239,68,68,0.15)';
+          statusEl.style.color = '#ef4444';
+          nameDisplay.textContent = 'None selected';
+        }
+        if (isChannelsLoaded && data.channelId) {
+          document.getElementById('channelSelect').value = data.channelId;
+          document.getElementById('sendChannelSelect').value = data.channelId;
+        }
+      }
+      return data;
+    }
+
+    // ---- Update status card ----
+    function updateStatusCard(data) {
+      var card = document.getElementById('statusCard');
+      var icon = document.getElementById('statusIcon');
+      var title = document.getElementById('statusTitle');
+      var badge = document.getElementById('statusBadgeMsg');
+      var sub = document.getElementById('statusSub');
+      var msgId = document.getElementById('msgIdDisplay');
+      var channel = document.getElementById('msgChannelDisplay');
+      var updated = document.getElementById('msgUpdatedDisplay');
+      var actions = document.getElementById('statusActions');
+
+      // Reset classes
+      card.className = 'status-card';
+      if (data.messageId && data.messageExists) {
+        card.classList.add('active');
+        icon.textContent = '✔';
+        title.textContent = 'Active';
+        badge.textContent = 'ACTIVE';
+        sub.textContent = 'Message is available in Discord.';
+        msgId.textContent = data.messageId;
+        channel.textContent = data.channelName ? '#' + data.channelName : 'Unknown';
+        updated.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—';
+        actions.innerHTML = `
+          <button class="btn btn-primary btn-sm" id="statusUpdateBtn">📤 Update</button>
+          <button class="btn btn-ghost btn-sm" id="statusOpenBtn">🔗 Open</button>
+          <button class="btn btn-ghost btn-sm" id="statusRecreateBtn">📝 Recreate</button>
+        `;
+        document.getElementById('statusUpdateBtn').addEventListener('click', function() {
+          document.getElementById('sendDiscordBtn').click();
+        });
+        document.getElementById('statusOpenBtn').addEventListener('click', function() {
+          var url = 'https://discord.com/channels/' + (data.guildId || '@me') + '/' + data.channelId + '/' + data.messageId;
+          window.open(url, '_blank');
+        });
+        document.getElementById('statusRecreateBtn').addEventListener('click', function() {
+          openModal('sendDiscordModal');
+          document.getElementById('sendChannelSelect').value = data.channelId || '';
+          document.querySelector('.mode-card[data-mode="create"]').click();
+          document.getElementById('sendTitle').value = 'Flag Call Results';
+          document.getElementById('sendDescription').value = 'Live voting results for the current flag call.';
+          document.getElementById('sendFooter').value = 'Click a button below to vote';
+          updatePreview();
+        });
+      } else if (data.messageId && !data.messageExists) {
+        card.classList.add('deleted');
+        icon.textContent = '⚠';
+        title.textContent = 'Message Missing';
+        badge.textContent = 'DELETED';
+        sub.textContent = 'The saved message no longer exists on Discord.';
+        msgId.textContent = data.messageId + ' (deleted)';
+        channel.textContent = data.channelName ? '#' + data.channelName : 'Unknown';
+        updated.textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString() : '—';
+        actions.innerHTML = `
+          <button class="btn btn-danger btn-sm" id="statusRecreateBtn">📝 Recreate</button>
+        `;
+        document.getElementById('statusRecreateBtn').addEventListener('click', function() {
+          openModal('sendDiscordModal');
+          document.getElementById('sendChannelSelect').value = data.channelId || '';
+          document.querySelector('.mode-card[data-mode="create"]').click();
+          document.getElementById('sendTitle').value = 'Flag Call Results';
+          document.getElementById('sendDescription').value = 'Live voting results for the current flag call.';
+          document.getElementById('sendFooter').value = 'Click a button below to vote';
+          updatePreview();
+        });
+      } else {
+        card.classList.add('none');
+        icon.textContent = '➕';
+        title.textContent = 'No Message';
+        badge.textContent = 'NO MESSAGE';
+        sub.textContent = 'No Discord message has been created yet.';
+        msgId.textContent = '—';
+        channel.textContent = data.channelName ? '#' + data.channelName : 'Unknown';
+        updated.textContent = '—';
+        actions.innerHTML = `
+          <button class="btn btn-primary btn-sm" id="statusCreateBtn">📝 Create Message</button>
+        `;
+        document.getElementById('statusCreateBtn').addEventListener('click', function() {
+          openModal('sendDiscordModal');
+          document.getElementById('sendChannelSelect').value = data.channelId || '';
+          document.querySelector('.mode-card[data-mode="create"]').click();
+          document.getElementById('sendTitle').value = 'Flag Call Results';
+          document.getElementById('sendDescription').value = 'Live voting results for the current flag call.';
+          document.getElementById('sendFooter').value = 'Click a button below to vote';
+          updatePreview();
+        });
+      }
+    }
+
+    // ---- Load results ----
+    async function loadResults() {
+      var data = await apiFetch('/results');
+      var container = document.getElementById('resultsContainer');
+      var counts = [2,3,4,5];
+      var html = '';
+      for (var i=0; i<counts.length; i++) {
+        var count = counts[i];
+        var players = data.grouped[count] || [];
+        var emoji = '🏳'.repeat(count);
+        html += '<div class="results-group">';
+        html += '<div class="header"><span>' + emoji + ' ' + count + ' Flags</span><span>' + players.length + '</span></div>';
+        if (players.length === 0) html += '<div class="text-muted" style="font-size:0.85rem;">None</div>';
+        else {
+          for (var j=0; j<players.length; j++) {
+            var p = players[j];
+            var avatar = p.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+            html += '<div class="player-item">';
+            html += '<img src="' + avatar + '" onerror="this.src=\'https://cdn.discordapp.com/embed/avatars/0.png\'" />';
+            html += '<span>' + p.username + '</span>';
+            html += '<span style="color:var(--text-muted);font-size:0.75rem;margin-left:auto;">' + new Date(p.submittedAt).toLocaleTimeString() + '</span>';
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+      }
+      container.innerHTML = html;
+    }
+
+    // ---- Load activity ----
+    async function loadActivity() {
+      var data = await apiFetch('/activity');
+      var feed = document.getElementById('activityFeed');
+      if (!data.activity || data.activity.length === 0) {
+        feed.innerHTML = '<div class="text-muted">No recent activity.</div>';
+        return;
+      }
+      var html = '';
+      for (var i=0; i<Math.min(data.activity.length,20); i++) {
+        var a = data.activity[i];
+        var time = a.time ? new Date(a.time).toLocaleTimeString() : '';
+        html += '<div class="activity-item"><span>' + a.text + '</span><span class="time">' + time + '</span></div>';
+      }
+      feed.innerHTML = html;
+    }
+
+    // ---- Refresh all ----
+    async function refreshAll() {
+      try {
+        await loadStatus();
+        await loadResults();
+        await loadActivity();
+        document.getElementById('errorBanner').style.display = 'none';
+        if (firstLoad) {
+          var loader = document.getElementById('hc-loading-screen');
+          if (loader) {
+            loader.classList.add('fade-out');
+            setTimeout(function() { if (loader.parentNode) loader.remove(); }, 500);
+          }
+          firstLoad = false;
+        }
+        updatePreview();
+      } catch (e) {
+        console.error('Refresh failed:', e);
+        if (firstLoad) {
+          document.getElementById('errorBanner').style.display = 'block';
+          document.getElementById('errorMessage').textContent = e.message || 'Failed to load data.';
+        }
+        throw e;
+      }
+    }
+
+    document.getElementById('retryBtn').addEventListener('click', async function() {
+      document.getElementById('errorBanner').style.display = 'none';
+      await refreshAll();
+    });
+
+    // ---- Preview update ----
+    function updatePreview() {
+      document.getElementById('pCount2').textContent = currentCounts[2] || 0;
+      document.getElementById('pCount3').textContent = currentCounts[3] || 0;
+      document.getElementById('pCount4').textContent = currentCounts[4] || 0;
+      document.getElementById('pCount5').textContent = currentCounts[5] || 0;
+      document.getElementById('pTotal').textContent = currentTotal;
+
+      var title = document.getElementById('sendTitle') ? document.getElementById('sendTitle').value || 'Flag Call Results' : 'Flag Call Results';
+      var desc = document.getElementById('sendDescription') ? document.getElementById('sendDescription').value || '' : '';
+      var footer = document.getElementById('sendFooter') ? document.getElementById('sendFooter').value || '' : '';
+      var color = document.getElementById('colorHex') ? document.getElementById('colorHex').value || '#2ecc71' : '#2ecc71';
+
+      var previewTitle = document.getElementById('previewTitle');
+      var previewDesc = document.getElementById('previewDesc');
+      var previewFooter = document.getElementById('previewFooter');
+      var previewColorDot = document.getElementById('previewColorDot');
+      var previewColorHex = document.getElementById('previewColorHex');
+      if (previewTitle) previewTitle.textContent = title;
+      if (previewDesc) previewDesc.textContent = desc;
+      if (previewFooter) previewFooter.textContent = footer;
+      if (previewColorDot) previewColorDot.style.background = color;
+      if (previewColorHex) previewColorHex.textContent = color;
+
+      // Update button preview
+      var labels = {
+        2: document.getElementById('btnLabel2') ? document.getElementById('btnLabel2').value || '2 Flags' : '2 Flags',
+        3: document.getElementById('btnLabel3') ? document.getElementById('btnLabel3').value || '3 Flags' : '3 Flags',
+        4: document.getElementById('btnLabel4') ? document.getElementById('btnLabel4').value || '4 Flags' : '4 Flags',
+        5: document.getElementById('btnLabel5') ? document.getElementById('btnLabel5').value || '5 Flags' : '5 Flags'
+      };
+      var emojis = {
+        2: document.getElementById('btnEmoji2') ? document.getElementById('btnEmoji2').value || '🏳' : '🏳',
+        3: document.getElementById('btnEmoji3') ? document.getElementById('btnEmoji3').value || '🏳' : '🏳',
+        4: document.getElementById('btnEmoji4') ? document.getElementById('btnEmoji4').value || '🏳' : '🏳',
+        5: document.getElementById('btnEmoji5') ? document.getElementById('btnEmoji5').value || '🏳' : '🏳'
+      };
+      var colors = {
+        2: document.getElementById('btnColor2') ? parseInt(document.getElementById('btnColor2').value, 10) : 1,
+        3: document.getElementById('btnColor3') ? parseInt(document.getElementById('btnColor3').value, 10) : 3,
+        4: document.getElementById('btnColor4') ? parseInt(document.getElementById('btnColor4').value, 10) : 2,
+        5: document.getElementById('btnColor5') ? parseInt(document.getElementById('btnColor5').value, 10) : 4
+      };
+      var previewContainer = document.getElementById('buttonPreview');
+      var btnClasses = ['primary','secondary','success','danger'];
+      var btns = [
+        { label: emojis[2] + ' ' + labels[2], cls: btnClasses[colors[2]-1] || 'primary' },
+        { label: emojis[3] + ' ' + labels[3], cls: btnClasses[colors[3]-1] || 'success' },
+        { label: emojis[4] + ' ' + labels[4], cls: btnClasses[colors[4]-1] || 'secondary' },
+        { label: emojis[5] + ' ' + labels[5], cls: btnClasses[colors[5]-1] || 'danger' }
+      ];
+      previewContainer.innerHTML = btns.map(function(b) {
+        return '<span class="btn-preview ' + b.cls + '">' + b.label + '</span>';
+      }).join('');
+    }
+
+    // ---- Load settings for button config ----
+    async function loadSettings() {
+      if (!hasManage) return;
+      try {
+        var data = await apiFetch('/settings');
+        var s = data.settings || {};
+        document.getElementById('settingsColorHex').value = s.embedColor || '#2ecc71';
+        document.getElementById('settingsColorSwatch').style.background = s.embedColor || '#2ecc71';
+        document.getElementById('btnLabel2').value = s.buttonLabels ? s.buttonLabels[2] || '2 Flags' : '2 Flags';
+        document.getElementById('btnLabel3').value = s.buttonLabels ? s.buttonLabels[3] || '3 Flags' : '3 Flags';
+        document.getElementById('btnLabel4').value = s.buttonLabels ? s.buttonLabels[4] || '4 Flags' : '4 Flags';
+        document.getElementById('btnLabel5').value = s.buttonLabels ? s.buttonLabels[5] || '5 Flags' : '5 Flags';
+        document.getElementById('btnEmoji2').value = s.buttonEmojis ? s.buttonEmojis[2] || '🏳' : '🏳';
+        document.getElementById('btnEmoji3').value = s.buttonEmojis ? s.buttonEmojis[3] || '🏳' : '🏳';
+        document.getElementById('btnEmoji4').value = s.buttonEmojis ? s.buttonEmojis[4] || '🏳' : '🏳';
+        document.getElementById('btnEmoji5').value = s.buttonEmojis ? s.buttonEmojis[5] || '🏳' : '🏳';
+        document.getElementById('btnColor2').value = s.buttonColors ? s.buttonColors[2] || 1 : 1;
+        document.getElementById('btnColor3').value = s.buttonColors ? s.buttonColors[3] || 3 : 3;
+        document.getElementById('btnColor4').value = s.buttonColors ? s.buttonColors[4] || 2 : 2;
+        document.getElementById('btnColor5').value = s.buttonColors ? s.buttonColors[5] || 4 : 4;
+      } catch (e) { console.warn('Failed to load settings', e); }
+    }
+
+    // ---- Admin actions ----
+    if (hasManage) {
+      // Lock/Unlock
+      document.getElementById('lockToggleBtn').addEventListener('click', async function() {
+        if (actionRunning) return;
+        actionRunning = true;
+        var isLocked = this.querySelector('.btn-text').textContent.includes('Lock');
+        var action = isLocked ? 'lock' : 'unlock';
+        var label = isLocked ? 'Locking...' : 'Unlocking...';
+        setButtonLoading(this, true, label);
+        try {
+          await apiFetch('/' + action, { method: 'POST' });
+          await refreshAll();
+          showToast('success', 'Success', isLocked ? 'Voting locked.' : 'Voting unlocked.');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); actionRunning = false; }
+      });
+
+      // Restart
+      document.getElementById('restartBtn').addEventListener('click', function() {
+        if (actionRunning) return;
+        var self = this;
+        openConfirmModal({
+          title: '🔄 Restart Flag Call',
+          message: 'This will clear all votes and reset the session. The existing Discord message will be updated.',
+          onConfirm: function() {
+            actionRunning = true;
+            setButtonLoading(self, true, 'Restarting...');
+            apiFetch('/restart', { method: 'POST' })
+              .then(async function() {
+                await refreshAll();
+                showToast('success', 'Restarted', 'Flag Call has been reset.');
+              })
+              .catch(function(e) { showToast('error', 'Failed', e.message); })
+              .finally(function() { setButtonLoading(self, false); actionRunning = false; });
+          }
+        });
+      });
+
+      // Results
+      document.getElementById('resultBtn').addEventListener('click', async function() {
+        setButtonLoading(this, true, 'Loading...');
+        try {
+          var data = await apiFetch('/results');
+          var body = document.getElementById('resultModalBody');
+          var counts = [2,3,4,5];
+          var html = '';
+          for (var i=0; i<counts.length; i++) {
+            var count = counts[i];
+            var players = data.grouped[count] || [];
+            var emoji = '🏳'.repeat(count);
+            html += '<div class="results-group">';
+            html += '<div class="header"><span>' + emoji + ' ' + count + ' Flags</span><span>' + players.length + '</span></div>';
+            if (players.length === 0) html += '<div class="text-muted">None</div>';
+            else {
+              for (var j=0; j<players.length; j++) {
+                var p = players[j];
+                var avatar = p.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                html += '<div class="player-item">';
+                html += '<img src="' + avatar + '" onerror="this.src=\'https://cdn.discordapp.com/embed/avatars/0.png\'" />';
+                html += '<span>' + p.username + ' <span style="color:var(--text-muted);font-size:0.8rem;">&lt;@' + p.discordId + '&gt;</span></span>';
+                html += '<span style="color:var(--text-muted);font-size:0.75rem;margin-left:auto;">' + new Date(p.submittedAt).toLocaleTimeString() + '</span>';
+                html += '</div>';
+              }
+            }
+            html += '</div>';
+          }
+          body.innerHTML = html;
+          openModal('resultModal');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); }
+      });
+
+      // Copy Results
+      document.getElementById('copyResultBtn').addEventListener('click', function() {
+        var body = document.getElementById('resultModalBody');
+        var groups = body.querySelectorAll('.results-group');
+        var text = '';
+        groups.forEach(function(g) {
+          var header = g.querySelector('.header');
+          var items = g.querySelectorAll('.player-item');
+          text += header.textContent.trim() + '\n';
+          items.forEach(function(item) {
+            var mention = item.querySelector('span').textContent.trim().split(' ').pop() || '';
+            text += '• ' + mention + '\n';
+          });
+          text += '\n';
+        });
+        if (!text) { showToast('warning', 'Nothing to copy', 'No results available.'); return; }
+        function copyFallback() {
+          var textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          try { document.execCommand('copy'); showToast('success', 'Copied', 'Results copied.'); }
+          catch (e) { showToast('error', 'Failed', 'Could not copy.'); }
+          document.body.removeChild(textarea);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function() { showToast('success', 'Copied', 'Results copied.'); }).catch(copyFallback);
+        } else { copyFallback(); }
+      });
+
+      // Change Vote
+      document.getElementById('changeVoteBtn').addEventListener('click', function() {
+        openModal('changeVoteModal');
+        document.getElementById('changeSearch').value = '';
+        document.getElementById('changeResults').innerHTML = '<div class="text-muted">Type to search players…</div>';
+        document.getElementById('changeVoteForm').style.display = 'none';
+        document.getElementById('saveVoteBtn').disabled = true;
+        selectedChangePlayer = null;
+      });
+
+      var searchTimeout = null;
+      document.getElementById('changeSearch').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        var q = this.value.trim();
+        if (q.length < 2) {
+          document.getElementById('changeResults').innerHTML = '<div class="text-muted">Type at least 2 characters…</div>';
+          return;
+        }
+        searchTimeout = setTimeout(function() {
+          var container = document.getElementById('changeResults');
+          apiFetch('/search?q=' + encodeURIComponent(q))
+            .then(function(data) {
+              if (!data.results || data.results.length === 0) { container.innerHTML = '<div class="text-muted">No players found.</div>'; return; }
+              var html = '';
+              data.results.forEach(function(p) {
+                var avatar = p.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+                html += '<div class="search-result" data-id="' + p.discord_id + '" data-flag="' + p.flag_count + '" data-name="' + p.username + '">';
+                html += '<img src="' + avatar + '" onerror="this.src=\'https://cdn.discordapp.com/embed/avatars/0.png\'" />';
+                html += '<div class="info"><span class="name">' + p.username + '</span><span class="sub">Current: ' + p.flag_count + ' Flags</span></div>';
+                html += '</div>';
+              });
+              container.innerHTML = html;
+              container.querySelectorAll('.search-result').forEach(function(el) {
+                el.addEventListener('click', function() {
+                  selectedChangePlayer = { id: this.dataset.id, name: this.dataset.name, flag: parseInt(this.dataset.flag, 10) };
+                  document.getElementById('selectedPlayerName').value = selectedChangePlayer.name;
+                  document.getElementById('currentVote').value = selectedChangePlayer.flag + ' Flags';
+                  document.getElementById('newVoteSelect').value = selectedChangePlayer.flag;
+                  document.getElementById('changeVoteForm').style.display = 'block';
+                  document.getElementById('saveVoteBtn').disabled = false;
+                });
+              });
+            })
+            .catch(function(e) { container.innerHTML = '<div class="text-muted">Search failed.</div>'; });
+        }, 300);
+      });
+
+      document.getElementById('saveVoteBtn').addEventListener('click', async function() {
+        if (!selectedChangePlayer) return;
+        if (actionRunning) return;
+        actionRunning = true;
+        setButtonLoading(this, true, 'Saving...');
+        try {
+          var newFlag = document.getElementById('newVoteSelect').value;
+          await apiFetch('/change/' + selectedChangePlayer.id, {
+            method: 'PUT',
+            body: JSON.stringify({ flagCount: parseInt(newFlag, 10), username: selectedChangePlayer.name })
+          });
+          await refreshAll();
+          showToast('success', 'Updated', 'Vote changed to ' + newFlag + ' Flags.');
+          closeModal('changeVoteModal');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); actionRunning = false; }
+      });
+
+      // Refresh channels
+      document.getElementById('refreshChannelsBtn').addEventListener('click', function() { loadChannels(); });
+
+      // Save Channel (only saves, no Discord send)
+      document.getElementById('saveChannelBtn').addEventListener('click', async function() {
+        if (actionRunning) return;
+        var select = document.getElementById('channelSelect');
+        var channelId = select.value;
+        if (!channelId) { showToast('warning', 'Select a channel', 'Please select a channel first.'); return; }
+        actionRunning = true;
+        setButtonLoading(this, true, 'Saving...');
+        try {
+          var channelName = select.options[select.selectedIndex].text.replace('#', '');
+          await apiFetch('/channel', { method: 'POST', body: JSON.stringify({ channelId: channelId, channelName: channelName }) });
+          await refreshAll();
+          showToast('success', 'Saved', 'Channel #' + channelName + ' saved.');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); actionRunning = false; }
+      });
+
+      // Test message
+      document.getElementById('testChannelBtn').addEventListener('click', async function() {
+        if (actionRunning) return;
+        actionRunning = true;
+        setButtonLoading(this, true, 'Sending...');
+        try {
+          await apiFetch('/test', { method: 'POST' });
+          await refreshAll();
+          showToast('success', 'Test sent', 'Test message sent to Discord.');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); actionRunning = false; }
+      });
+
+      // Send Discord modal
+      document.getElementById('sendDiscordBtn').addEventListener('click', function() {
+        if (actionRunning) return;
+        populateChannelSelect(document.getElementById('sendChannelSelect'));
+        if (document.getElementById('channelSelect').value) {
+          document.getElementById('sendChannelSelect').value = document.getElementById('channelSelect').value;
+        }
+        document.getElementById('sendTitle').value = 'Flag Call Results';
+        document.getElementById('sendDescription').value = 'Live voting results for the current flag call.';
+        document.getElementById('sendFooter').value = 'Click a button below to vote';
+        // Set color from settings
+        var settingsColor = document.getElementById('settingsColorHex');
+        if (settingsColor) {
+          document.getElementById('colorHex').value = settingsColor.value;
+          document.getElementById('colorSwatch').style.background = settingsColor.value;
+        } else {
+          document.getElementById('colorHex').value = '#2ecc71';
+          document.getElementById('colorSwatch').style.background = '#2ecc71';
+        }
+        updateModeCards();
+        var hint = document.getElementById('sendModeHint');
+        if (currentMessageId && currentMessageExists) {
+          hint.textContent = '🟢 Existing message found (ID: ' + currentMessageId + ')';
+          hint.className = 'badge-status existing';
+        } else if (currentMessageId && !currentMessageExists) {
+          hint.textContent = '🔴 Message deleted. Will create new.';
+          hint.className = 'badge-status deleted';
+          document.querySelector('.mode-card[data-mode="create"]').click();
+        } else {
+          hint.textContent = '🟠 No existing message. Create new.';
+          hint.className = 'badge-status none';
+          document.querySelector('.mode-card[data-mode="create"]').click();
+        }
+        updatePreview();
+        openModal('sendDiscordModal');
+      });
+
+      // Mode cards
+      function updateModeCards() {
+        var cards = document.querySelectorAll('.mode-card');
+        var hasMsg = !!(currentMessageId && currentMessageExists);
+        cards.forEach(function(card) {
+          var mode = card.dataset.mode;
+          if (mode === 'update' && !hasMsg) {
+            card.style.opacity = '0.5';
+            card.style.cursor = 'not-allowed';
+            card.classList.remove('selected');
+          } else {
+            card.style.opacity = '1';
+            card.style.cursor = 'pointer';
+          }
+          if (mode === 'create') card.classList.add('selected');
+          else card.classList.remove('selected');
+        });
+        document.querySelector('.mode-card[data-mode="create"]').classList.add('selected');
+        document.querySelector('.mode-card[data-mode="update"]').classList.remove('selected');
+      }
+
+      document.getElementById('modeCards').addEventListener('click', function(e) {
+        var card = e.target.closest('.mode-card');
+        if (!card) return;
+        var mode = card.dataset.mode;
+        if (mode === 'update' && !(currentMessageId && currentMessageExists)) {
+          showToast('warning', 'Cannot update', 'No existing message to update.');
+          return;
+        }
+        document.querySelectorAll('.mode-card').forEach(function(c) {
+          c.classList.remove('selected');
+          var radio = c.querySelector('.mode-radio');
+          if (radio) radio.textContent = '○';
+        });
+        card.classList.add('selected');
+        var radio = card.querySelector('.mode-radio');
+        if (radio) radio.textContent = '◉';
+      });
+
+      // Live preview
+      document.getElementById('sendTitle').addEventListener('input', updatePreview);
+      document.getElementById('sendDescription').addEventListener('input', updatePreview);
+      document.getElementById('sendFooter').addEventListener('input', updatePreview);
+      document.getElementById('colorHex').addEventListener('input', updatePreview);
+
+      // Send confirm
+      document.getElementById('sendDiscordConfirmBtn').addEventListener('click', async function() {
+        if (actionRunning) return;
+        var channelSelect = document.getElementById('sendChannelSelect');
+        var channelId = channelSelect.value;
+        if (!channelId) { showToast('warning', 'Select a channel', 'Please select a Discord channel.'); return; }
+        var title = document.getElementById('sendTitle').value.trim() || 'Flag Call Results';
+        var description = document.getElementById('sendDescription').value.trim() || '';
+        var footer = document.getElementById('sendFooter').value.trim() || '';
+        var embedColor = document.getElementById('colorHex').value || '#2ecc71';
+        var modeCard = document.querySelector('.mode-card.selected');
+        var mode = modeCard ? modeCard.dataset.mode : 'create';
+
+        if (mode === 'update' && !(currentMessageId && currentMessageExists)) mode = 'create';
+
+        // Save channel if different
+        var status = await apiFetch('/status');
+        if (status.channelId !== channelId) {
+          var channelName = channelSelect.options[channelSelect.selectedIndex].text.replace('#', '');
+          await apiFetch('/channel', { method: 'POST', body: JSON.stringify({ channelId: channelId, channelName: channelName }) });
+        }
+
+        actionRunning = true;
+        setButtonLoading(this, true, 'Sending...');
+        try {
+          await apiFetch('/send', {
+            method: 'POST',
+            body: JSON.stringify({ title: title, description: description, footer: footer, embedColor: embedColor, mode: mode })
+          });
+          await refreshAll();
+          showToast('success', 'Sent', 'Discord message ' + (mode === 'update' ? 'updated' : 'created') + '.');
+          closeModal('sendDiscordModal');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); actionRunning = false; }
+      });
+
+      // Settings modal
+      document.getElementById('settingsBtn').addEventListener('click', function() {
+        loadSettings();
+        openModal('settingsModal');
+      });
+
+      document.getElementById('saveSettingsBtn').addEventListener('click', async function() {
+        setButtonLoading(this, true, 'Saving...');
+        try {
+          var payload = {
+            embedColor: document.getElementById('settingsColorHex').value,
+            buttonLabels: {
+              2: document.getElementById('btnLabel2').value,
+              3: document.getElementById('btnLabel3').value,
+              4: document.getElementById('btnLabel4').value,
+              5: document.getElementById('btnLabel5').value
+            },
+            buttonEmojis: {
+              2: document.getElementById('btnEmoji2').value,
+              3: document.getElementById('btnEmoji3').value,
+              4: document.getElementById('btnEmoji4').value,
+              5: document.getElementById('btnEmoji5').value
+            },
+            buttonColors: {
+              2: parseInt(document.getElementById('btnColor2').value, 10),
+              3: parseInt(document.getElementById('btnColor3').value, 10),
+              4: parseInt(document.getElementById('btnColor4').value, 10),
+              5: parseInt(document.getElementById('btnColor5').value, 10)
+            }
+          };
+          await apiFetch('/settings', { method: 'PUT', body: JSON.stringify(payload) });
+          showToast('success', 'Saved', 'Button settings updated.');
+          closeModal('settingsModal');
+          await refreshAll();
+          // Update Discord message with new settings
+          await apiFetch('/send', { method: 'POST', body: JSON.stringify({ mode: 'update' }) });
+          showToast('success', 'Discord updated', 'Message updated with new button settings.');
+        } catch (e) { showToast('error', 'Failed', e.message); }
+        finally { setButtonLoading(this, false); }
+      });
+
+      // Initialize color pickers
+      initColorPicker('colorSwatch', 'colorHex', 'colorPickerPopup', 'presetGrid', 'colorCustomHex', 'colorApplyBtn');
+      initColorPicker('settingsColorSwatch', 'settingsColorHex', 'settingsColorPopup', 'settingsPresetGrid', 'settingsColorCustomHex', 'settingsColorApplyBtn');
+
+      loadChannels();
+    }
+
+    // ---- Auto-refresh ----
+    document.addEventListener('DOMContentLoaded', function() {
+      refreshAll();
+      loadSettings();
+      autoRefreshInterval = setInterval(function() {
+        if (!actionRunning) {
+          refreshAll().catch(function(e) { console.warn('Auto-refresh failed:', e.message); });
+        }
+      }, 5000);
+    });
+
+    window.addEventListener('beforeunload', function() {
+      if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    });
+  </script>
+</body>
+</html>

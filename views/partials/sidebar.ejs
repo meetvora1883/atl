@@ -1,0 +1,140 @@
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="dot"></span>
+    <span class="brand-text"><%= t['app.name'] || 'HyperCity' %></span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <!-- Dashboard -->
+    <a href="/dashboard" class="nav-item <%= active === 'dashboard' ? 'active' : '' %>">
+      <i class="bi bi-speedometer2"></i>
+      <span><%= t['nav.dashboard'] || 'Dashboard' %></span>
+    </a>
+
+    <!-- Members -->
+    <% if (user?.permissions?.includes('manage_users')) { %>
+      <a href="/members" class="nav-item <%= active === 'members' ? 'active' : '' %>">
+        <i class="bi bi-people"></i>
+        <span><%= t['nav.members'] || 'Members' %></span>
+      </a>
+    <% } %>
+
+    <!-- Analytics -->
+    <% if (user?.permissions?.includes('view_analytics')) { %>
+      <a href="/analytics" class="nav-item <%= active === 'analytics' ? 'active' : '' %>">
+        <i class="bi bi-bar-chart-line"></i>
+        <span><%= t['nav.analytics'] || 'Analytics' %></span>
+      </a>
+    <% } %>
+
+    <!-- Bot Manager -->
+    <% if (user?.permissions?.includes('manage_bot')) { %>
+      <a href="/bot" class="nav-item <%= active === 'bot' ? 'active' : '' %>">
+        <i class="bi bi-robot"></i>
+        <span><%= t['nav.bot'] || 'Bot Manager' %></span>
+      </a>
+    <% } %>
+
+    <!-- Moderation -->
+    <% if (user?.permissions?.includes('moderate_members')) { %>
+      <a href="/moderation" class="nav-item <%= active === 'moderation' ? 'active' : '' %>">
+        <i class="bi bi-shield-exclamation"></i>
+        <span><%= t['nav.moderation'] || 'Moderation' %></span>
+      </a>
+    <% } %>
+
+    <!-- Events -->
+    <% if (user?.permissions?.includes('manage_events')) { %>
+      <a href="/events" class="nav-item <%= active === 'events' ? 'active' : '' %>">
+        <i class="bi bi-calendar-event"></i>
+        <span><%= t['nav.events'] || 'Events' %></span>
+      </a>
+    <% } %>
+
+    <!-- Settings -->
+    <a href="/settings" class="nav-item <%= active === 'settings' ? 'active' : '' %>">
+      <i class="bi bi-gear"></i>
+      <span><%= t['nav.settings'] || 'Settings' %></span>
+    </a>
+
+    <!-- Customize -->
+    <a href="/widgets" class="nav-item <%= active === 'widgets' ? 'active' : '' %>">
+      <i class="bi bi-layout-sidebar"></i>
+      <span><%= t['nav.customize'] || 'Customize' %></span>
+    </a>
+
+    <div class="nav-divider"></div>
+
+    <!-- Roles -->
+    <% if (user?.permissions?.includes('manage_roles')) { %>
+      <a href="/roles" class="nav-item <%= active === 'roles' ? 'active' : '' %>">
+        <i class="bi bi-shield-lock"></i>
+        <span><%= t['nav.roles'] || 'Roles' %></span>
+      </a>
+    <% } %>
+
+    <!-- Users -->
+    <% if (user?.permissions?.includes('manage_users')) { %>
+      <a href="/users" class="nav-item <%= active === 'users' ? 'active' : '' %>">
+        <i class="bi bi-person-check"></i>
+        <span><%= t['nav.users'] || 'Users' %></span>
+      </a>
+    <% } %>
+
+    <!-- Language Manager -->
+    <% if (user?.permissions?.includes('manage_translations')) { %>
+      <a href="/languages" class="nav-item <%= active === 'languages' ? 'active' : '' %>">
+        <i class="bi bi-translate"></i>
+        <span><%= t['nav.languages'] || 'Language Manager' %></span>
+      </a>
+    <% } %>
+
+    <!-- Warboard -->
+    <% if (user?.permissions?.includes('view_warboard')) { %>
+      <a href="/warboard" class="nav-item <%= active === 'warboard' ? 'active' : '' %>">
+        <i class="bi bi-map"></i>
+        <span><%= t['nav.warboard'] || 'Warboard' %></span>
+      </a>
+    <% } %>
+
+    <!-- ====== NEW: Flag Calls ====== -->
+    <% if (user?.permissions?.includes('view_flag_calls')) { %>
+      <a href="/flag-calls" class="nav-item <%= active === 'flag_calls' ? 'active' : '' %>">
+        <i class="bi bi-flag"></i>
+        <span>Flag Calls</span>
+      </a>
+    <% } %>
+
+    <!-- ====== Attack Planning ====== -->
+    <% if (user?.permissions?.includes('view_attack_plans')) { %>
+      <a href="/attack-plans" class="nav-item <%= active === 'attack-plans' ? 'active' : '' %>">
+        <i class="bi bi-crosshair"></i>
+        <span>Attack Planning</span>
+      </a>
+    <% } %>
+
+    <!-- Console -->
+    <% if (user?.permissions?.includes('console_access')) { %>
+      <a href="/console" class="nav-item <%= active === 'console' ? 'active' : '' %>">
+        <i class="bi bi-terminal"></i>
+        <span><%= t['nav.console'] || 'Console' %></span>
+      </a>
+    <% } %>
+
+    <!-- Owner Panel -->
+    <% if (user && (user.isOwner || user.permissions?.includes('owner_panel') || user.roles?.includes('owner'))) { %>
+      <a href="/owner" class="nav-item nav-item-owner <%= active === 'owner' ? 'active' : '' %>">
+        <i class="bi bi-award"></i>
+        <span><%= t['nav.owner'] || 'Owner Panel' %></span>
+      </a>
+    <% } %>
+
+  </nav>
+
+  <button id="sidebar-collapse-btn" class="sidebar-collapse-btn" aria-label="<%= t['nav.collapse'] || 'Collapse sidebar' %>">
+    <i class="bi bi-chevron-left"></i>
+  </button>
+</aside>
+
+<!-- Sidebar backdrop (for mobile) -->
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>

@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Language Manager' }) %>
+  <style>
+    .lang-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .lang-stat-card {
+      padding: 18px 20px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .lang-stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px -10px rgba(88,101,242,0.3);
+    }
+    .lang-stat-card .stat-icon { font-size: 1.8rem; margin-bottom: 6px; display: block; }
+    .lang-stat-card .stat-number { font-size: 2rem; font-weight: 700; font-family: var(--font-mono); }
+    .lang-stat-card .stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .lang-tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 0 12px;
+      border-bottom: 1px solid var(--glass-border);
+      margin-bottom: 20px;
+      flex-wrap: nowrap;
+      scrollbar-width: thin;
+    }
+    .lang-tabs::-webkit-scrollbar { height: 4px; }
+    .lang-tabs::-webkit-scrollbar-track { background: var(--glass); border-radius: 4px; }
+    .lang-tabs::-webkit-scrollbar-thumb { background: var(--accent-cyan); border-radius: 4px; }
+
+    .lang-tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: var(--glass);
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .lang-tab:hover { background: var(--glass-strong); color: var(--text-primary); }
+    .lang-tab.active {
+      border-color: var(--accent-cyan);
+      background: rgba(79,209,255,0.1);
+      color: var(--text-primary);
+      box-shadow: 0 0 20px rgba(79,209,255,0.15);
+    }
+    .lang-tab .completion { font-size: 0.65rem; background: rgba(255,255,255,0.08); padding: 1px 8px; border-radius: 10px; color: var(--text-muted); }
+    .lang-tab .toggle-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 0 4px; }
+    .lang-tab .toggle-btn.enabled { color: var(--accent-green); }
+    .lang-tab .toggle-btn.disabled { color: var(--danger); }
+
+    .translation-table-wrap { overflow-x: auto; margin-top: 12px; }
+    .translation-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .translation-table th { text-align: left; padding: 10px 8px; color: var(--text-muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--glass-border); }
+    .translation-table td { padding: 10px 8px; border-bottom: 1px solid var(--glass-border); vertical-align: middle; }
+    .translation-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .translation-table .status-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; }
+    .status-complete { background: rgba(87,227,154,0.15); color: var(--accent-green); }
+    .status-missing { background: rgba(255,107,107,0.15); color: var(--danger); }
+    .status-modified { background: rgba(255,180,84,0.15); color: var(--accent-amber); }
+    .translation-table .edit-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 6px; transition: background 0.15s; }
+    .translation-table .edit-btn:hover { background: var(--glass); color: var(--text-primary); }
+
+    .lang-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .lang-toolbar input, .lang-toolbar select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+    }
+    .lang-toolbar input:focus { outline: 2px solid var(--accent-cyan); outline-offset: 1px; }
+    .lang-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; }
+
+    .modal-glass {
+      background: rgba(15,12,28,0.97);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      max-width: 700px;
+      width: 100%;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+    .modal-glass .modal-close {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+    .modal-glass .modal-close:hover { background: var(--glass-strong); }
+
+    .lang-preview-dropdown {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      max-width: 260px;
+      cursor: default;
+    }
+    .lang-preview-dropdown .preview-item { padding: 6px 8px; border-radius: 6px; display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
+    .lang-preview-dropdown .preview-item:hover { background: var(--glass-strong); }
+
+    .json-preview-area {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      width: 100%;
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      resize: vertical;
+      min-height: 200px;
+    }
+    .json-preview-area:focus { outline: 2px solid var(--accent-cyan); outline-offset: 1px; }
+
+    .import-options { display: flex; gap: 12px; margin-bottom: 12px; }
+    .import-options .btn { flex: 1; justify-content: center; }
+
+    @media (max-width: 768px) {
+      .lang-stats { grid-template-columns: 1fr 1fr; }
+      .lang-tabs { gap: 4px; }
+      .lang-tab { font-size: 0.75rem; padding: 6px 12px; }
+      .lang-toolbar { flex-direction: column; align-items: stretch; }
+      .modal-glass .flex.gap-12 { flex-wrap: wrap; gap: 8px; }
+      .modal-glass .flex.gap-12 .btn { width: 100%; justify-content: center; }
+      .import-options { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'languages' }) %>
+    <div class="main-wrap">
+      <%- include('../partials/topbar') %>
+      <div class="container page-content">
+
+        <!-- Header -->
+        <div class="flex-between" style="margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h1 style="margin:0; display:flex; align-items:center; gap:10px;">
+              <i class="bi bi-translate" style="color:var(--accent-cyan);"></i> Language Manager
+            </h1>
+            <p class="text-muted" style="margin:4px 0 0;">Manage dashboard languages and translations.</p>
+          </div>
+          <div class="flex gap-8" style="flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="openAddLanguageModal()"><i class="bi bi-plus-circle"></i> Add Language</button>
+            <button class="btn btn-ghost btn-sm" onclick="importJSON()"><i class="bi bi-file-earmark-arrow-up"></i> Import</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportJSON()"><i class="bi bi-file-earmark-arrow-down"></i> Export</button>
+            <button class="btn btn-ghost btn-sm" onclick="scanMissing()"><i class="bi bi-search"></i> Scan Missing</button>
+          </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="lang-stats" id="stats-container">
+          <div class="lang-stat-card">
+            <span class="stat-icon"><i class="bi bi-globe2" style="color:var(--accent-cyan);"></i></span>
+            <div class="stat-number" id="stat-total-langs">0</div>
+            <div class="stat-label">Total Languages</div>
+          </div>
+          <div class="lang-stat-card">
+            <span class="stat-icon"><i class="bi bi-check-circle" style="color:var(--accent-green);"></i></span>
+            <div class="stat-number" id="stat-enabled-langs">0</div>
+            <div class="stat-label">Enabled Languages</div>
+          </div>
+          <div class="lang-stat-card">
+            <span class="stat-icon"><i class="bi bi-key" style="color:var(--accent-amber);"></i></span>
+            <div class="stat-number" id="stat-total-keys">0</div>
+            <div class="stat-label">Total Translation Keys</div>
+          </div>
+          <div class="lang-stat-card">
+            <span class="stat-icon"><i class="bi bi-exclamation-triangle" style="color:var(--danger);"></i></span>
+            <div class="stat-number" id="stat-missing">0</div>
+            <div class="stat-label">Missing Translations</div>
+          </div>
+        </div>
+
+        <!-- Language Tabs + JSON preview button -->
+        <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div class="lang-tabs" id="lang-tabs-container" style="flex:1; border-bottom: none; margin-bottom: 0;"></div>
+          <button class="btn btn-ghost btn-sm" onclick="showJSONPreview()" title="Edit JSON for current language">
+            <i class="bi bi-filetype-json"></i> Edit JSON
+          </button>
+        </div>
+
+        <!-- Translation Editor Toolbar -->
+        <div class="lang-toolbar">
+          <input type="text" id="search-translation" placeholder="Search translations..." style="flex:1; min-width:180px;">
+          <label><input type="checkbox" id="filter-missing"> Show missing only</label>
+          <label><input type="checkbox" id="filter-changed"> Show modified only</label>
+          <label><input type="checkbox" id="auto-save" checked> Auto-save</label>
+          <button class="btn btn-ghost btn-sm" onclick="saveAllTranslations()"><i class="bi bi-save"></i> Save All</button>
+        </div>
+
+        <!-- Translation Table -->
+        <div class="glass card">
+          <div class="translation-table-wrap">
+            <table class="translation-table" id="translations-table">
+              <thead>
+                <tr>
+                  <th style="width:25%;">Key</th>
+                  <th style="width:25%;">English</th>
+                  <th style="width:30%;">Translation</th>
+                  <th style="width:10%;">Status</th>
+                  <th style="width:10%;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="translations-tbody">
+                <tr><td colspan="5" class="text-muted" style="text-align:center;padding:30px;">Select a language to start editing.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Language Selector Preview -->
+        <div class="glass card mt-24" style="margin-top:32px;">
+          <h3 class="section-title">🌐 Language Selector Preview</h3>
+          <p class="text-muted" style="font-size:0.85rem;">This is how the language switcher will appear to users.</p>
+          <div class="lang-preview-dropdown" style="margin-top:12px;">
+            <div class="preview-item"><span>🌐</span> English</div>
+            <div class="preview-item"><span>🌐</span> हिन्दी</div>
+            <div class="preview-item"><span>🌐</span> ગુજરાતી</div>
+            <div class="preview-item"><span>🌐</span> தமிழ்</div>
+            <div class="preview-item"><span>🌐</span> తెలుగు</div>
+            <div class="preview-item"><span>🌐</span> Русский</div>
+          </div>
+          <div style="margin-top:16px; display:flex; flex-wrap:wrap; gap:16px;">
+            <label><input type="checkbox" id="setting-login-selector" checked> Enable language selector on login page</label>
+            <label><input type="checkbox" id="setting-user-change" checked> Allow users to change language</label>
+            <label><input type="checkbox" id="setting-auto-detect" checked> Auto-detect browser language</label>
+            <label><input type="checkbox" id="setting-fallback" checked> Fallback to English</label>
+            <label><input type="checkbox" id="setting-cache" checked> Cache translations</label>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="saveSettings()">Save Settings</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODALS ===== -->
+
+  <!-- Add Language Modal -->
+  <div id="add-language-modal" class="modal" style="display:none;">
+    <div class="modal-glass">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <h3 style="margin:0;">Add Language</h3>
+        <button class="modal-close" onclick="closeModal('add-language-modal')">&times;</button>
+      </div>
+      <form id="add-language-form">
+        <div class="field">
+          <label>Language Name</label>
+          <input type="text" id="new-lang-name" placeholder="e.g. Hindi" required>
+        </div>
+        <div class="field">
+          <label>Language Code (ISO 639-1)</label>
+          <input type="text" id="new-lang-code" placeholder="e.g. hi" required>
+        </div>
+        <div class="field">
+          <label>Flag Emoji</label>
+          <input type="text" id="new-lang-flag" placeholder="🇮🇳" value="🌐">
+        </div>
+        <div class="switch" style="margin-bottom:12px;">
+          <span>Enable Language</span>
+          <input type="checkbox" id="new-lang-enabled" checked>
+        </div>
+        <div class="field">
+          <label>Copy translations from</label>
+          <select id="new-lang-copy-from">
+            <option value="">None</option>
+          </select>
+        </div>
+        <div class="flex gap-12" style="margin-top:16px; flex-wrap: wrap;">
+          <button type="submit" class="btn btn-primary">Create Language</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('add-language-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Translation Modal -->
+  <div id="edit-translation-modal" class="modal" style="display:none;">
+    <div class="modal-glass">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <h3 style="margin:0;">Edit Translation</h3>
+        <button class="modal-close" onclick="closeModal('edit-translation-modal')">&times;</button>
+      </div>
+      <form id="edit-translation-form">
+        <input type="hidden" id="edit-key" value="">
+        <div class="field">
+          <label>Key</label>
+          <input type="text" id="edit-key-display" disabled style="opacity:0.6;">
+        </div>
+        <div class="field">
+          <label>English Value</label>
+          <input type="text" id="edit-english" disabled style="opacity:0.6;">
+        </div>
+        <div class="field">
+          <label>Translation Value</label>
+          <input type="text" id="edit-translation" required>
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="edit-notes" rows="2"></textarea>
+        </div>
+        <div class="flex gap-12" style="margin-top:16px; flex-wrap: wrap;">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveAndNext()">Save & Next</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('edit-translation-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JSON Editor Modal -->
+  <div id="json-modal" class="modal" style="display:none;">
+    <div class="modal-glass" style="max-width: 750px;">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <h3 style="margin:0;">📄 Editable JSON – <span id="json-modal-lang">en</span></h3>
+        <button class="modal-close" onclick="closeModal('json-modal')">&times;</button>
+      </div>
+      <div class="field">
+        <label>Edit translations in JSON format. Click "Save JSON" to apply changes.</label>
+        <textarea id="json-modal-content" class="json-preview-area" spellcheck="false"></textarea>
+      </div>
+      <div class="flex gap-12" style="margin-top:16px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="saveJSON()"><i class="bi bi-save"></i> Save JSON</button>
+        <button class="btn btn-ghost" onclick="closeModal('json-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div id="import-modal" class="modal" style="display:none;">
+    <div class="modal-glass">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <h3 style="margin:0;">Import Translations</h3>
+        <button class="modal-close" onclick="closeModal('import-modal')">&times;</button>
+      </div>
+      <div class="import-options">
+        <button class="btn btn-ghost btn-sm active-import-tab" data-tab="file" onclick="switchImportTab('file')"><i class="bi bi-file-earmark"></i> Upload File</button>
+        <button class="btn btn-ghost btn-sm" data-tab="paste" onclick="switchImportTab('paste')"><i class="bi bi-filetype-json"></i> Paste JSON</button>
+      </div>
+      <div id="import-file-section">
+        <div class="field">
+          <label>Select file (JSON, CSV, YAML)</label>
+          <input type="file" id="import-file" accept=".json,.csv,.yaml,.yml">
+        </div>
+        <div class="field">
+          <label>Target Language</label>
+          <select id="import-target-lang"></select>
+        </div>
+      </div>
+      <div id="import-paste-section" style="display:none;">
+        <div class="field">
+          <label>Paste JSON translations</label>
+          <textarea id="import-json-text" rows="10" placeholder='{"key1":"translation1","key2":"translation2"}' style="width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; padding:8px; color:var(--text-primary); font-family:var(--font-mono); font-size:0.8rem;"></textarea>
+        </div>
+        <div class="field">
+          <label>Target Language</label>
+          <select id="import-target-lang-paste"></select>
+        </div>
+      </div>
+      <div id="import-preview" style="margin-top:12px; max-height:200px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; font-size:0.85rem; display:none;"></div>
+      <div class="flex gap-12" style="margin-top:16px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="confirmImport()">Import</button>
+        <button class="btn btn-ghost" onclick="closeModal('import-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div id="export-modal" class="modal" style="display:none;">
+    <div class="modal-glass">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <h3 style="margin:0;">Export Translations</h3>
+        <button class="modal-close" onclick="closeModal('export-modal')">&times;</button>
+      </div>
+      <div class="field">
+        <label>Language</label>
+        <select id="export-lang"></select>
+      </div>
+      <div class="field">
+        <label>Format</label>
+        <select id="export-format">
+          <option value="json">JSON</option>
+          <option value="csv">CSV</option>
+          <option value="yaml">YAML</option>
+        </select>
+      </div>
+      <div class="flex gap-12" style="margin-top:16px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="confirmExport()">Download</button>
+        <button class="btn btn-ghost" onclick="closeModal('export-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scan Missing Modal -->
+  <div id="scan-modal" class="modal" style="display:none;">
+    <div class="modal-glass">
+      <div class="flex-between" style="margin-bottom:16px;">
+        <h3 style="margin:0;">Scan Missing Translations</h3>
+        <button class="modal-close" onclick="closeModal('scan-modal')">&times;</button>
+      </div>
+      <div id="scan-results" style="max-height:300px; overflow-y:auto; font-size:0.85rem;">
+        <p class="text-muted">Scanning...</p>
+      </div>
+      <div class="flex gap-12" style="margin-top:16px; flex-wrap: wrap;">
+        <button class="btn btn-ghost" onclick="closeModal('scan-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <%- include('../partials/scripts') %>
+
+  <script>
+    // ============================================================
+    // LANGUAGE MANAGER - Full implementation with editable JSON modal
+    // ============================================================
+    console.log('[LangManager] Script started');
+
+    const csrfToken = '<%= csrfToken %>';
+    const fetchFn = (typeof apiFetch !== 'undefined') ? apiFetch : function(url, opts) {
+      opts = opts || {};
+      opts.headers = opts.headers || {};
+      opts.headers['x-csrf-token'] = csrfToken;
+      return fetch(url, opts);
+    };
+
+    let languages = [];
+    let allKeys = [];
+    let currentLangCode = 'en';
+    let translationData = {};
+    let originalTranslations = {};
+    let autoSave = true;
+    let editingKey = null;
+
+    const tabsContainer = document.getElementById('lang-tabs-container');
+    const tbody = document.getElementById('translations-tbody');
+    const searchInput = document.getElementById('search-translation');
+    const filterMissing = document.getElementById('filter-missing');
+    const filterChanged = document.getElementById('filter-changed');
+    const autoSaveCheck = document.getElementById('auto-save');
+
+    async function init() {
+      await loadLanguages();
+      await loadKeys();
+      await loadTranslations(currentLangCode);
+      renderStats();
+      renderTabs();
+      renderTable();
+      bindEvents();
+      populateDropdowns();
+    }
+
+    async function loadLanguages() {
+      const res = await fetchFn('/api/translations/languages');
+      if (res.ok) {
+        languages = await res.json();
+      } else {
+        languages = [
+          { code: 'en', name: 'English', flag: '🇺🇸', enabled: true },
+          { code: 'hi', name: 'Hindi', flag: '🇮🇳', enabled: true },
+          { code: 'gu', name: 'Gujarati', flag: '🇮🇳', enabled: true },
+          { code: 'ta', name: 'Tamil', flag: '🇮🇳', enabled: false },
+          { code: 'te', name: 'Telugu', flag: '🇮🇳', enabled: false },
+          { code: 'ru', name: 'Russian', flag: '🇷🇺', enabled: false },
+        ];
+      }
+    }
+
+    async function loadKeys() {
+      const res = await fetchFn('/api/translations/keys');
+      if (res.ok) {
+        allKeys = await res.json();
+      } else {
+        allKeys = [
+          'nav.dashboard', 'nav.members', 'nav.analytics', 'nav.bot', 'nav.moderation',
+          'nav.events', 'nav.settings', 'nav.owner', 'common.save', 'common.logout'
+        ];
+      }
+      console.log('[LangManager] Loaded keys:', allKeys.length);
+    }
+
+    async function loadTranslations(langCode) {
+      const res = await fetchFn(`/api/translations/${langCode}`);
+      if (res.ok) {
+        const data = await res.json();
+        translationData = data;
+        originalTranslations = JSON.parse(JSON.stringify(data));
+      } else {
+        translationData = {};
+        originalTranslations = {};
+      }
+    }
+
+    function renderStats() {
+      const totalLangs = languages.length;
+      const enabledLangs = languages.filter(l => l.enabled).length;
+      const totalKeys = allKeys.length;
+      const missing = allKeys.filter(key => !translationData[key] || !translationData[key].trim()).length;
+      document.getElementById('stat-total-langs').textContent = totalLangs;
+      document.getElementById('stat-enabled-langs').textContent = enabledLangs;
+      document.getElementById('stat-total-keys').textContent = totalKeys;
+      document.getElementById('stat-missing').textContent = missing;
+    }
+
+    function renderTabs() {
+      tabsContainer.innerHTML = languages.map(lang => {
+        const active = lang.code === currentLangCode ? 'active' : '';
+        const completion = getCompletion(lang.code);
+        const enabledClass = lang.enabled ? 'enabled' : 'disabled';
+        const toggleIcon = lang.enabled ? 'bi-check-circle' : 'bi-circle';
+        return `
+          <div class="lang-tab ${active}" data-code="${lang.code}" onclick="switchLanguage('${lang.code}')">
+            <span>${lang.flag || '🌐'}</span>
+            ${lang.name} (${lang.code})
+            <span class="completion">${completion}%</span>
+            <button class="toggle-btn ${enabledClass}" onclick="event.stopPropagation(); toggleLanguage('${lang.code}')" title="Toggle enabled">
+              <i class="bi ${toggleIcon}"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getCompletion(code) {
+      if (!allKeys.length) return 0;
+      const translated = allKeys.filter(key => translationData[key] && translationData[key].trim()).length;
+      return Math.round((translated / allKeys.length) * 100);
+    }
+
+    async function switchLanguage(code) {
+      if (code === currentLangCode) return;
+      if (autoSave) await saveAllTranslations();
+      currentLangCode = code;
+      await loadTranslations(code);
+      renderTabs();
+      renderTable();
+      renderStats();
+    }
+
+    async function toggleLanguage(code) {
+      const lang = languages.find(l => l.code === code);
+      if (!lang) return;
+      lang.enabled = !lang.enabled;
+      await fetchFn(`/api/translations/languages/${code}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: lang.enabled })
+      });
+      renderTabs();
+      renderStats();
+      window.showToast('success', `Language ${lang.enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    function renderTable() {
+      const search = searchInput.value.toLowerCase();
+      const showMissing = filterMissing.checked;
+      const showChanged = filterChanged.checked;
+
+      let keys = [...allKeys];
+      if (showMissing) {
+        keys = keys.filter(k => !translationData[k] || !translationData[k].trim());
+      }
+      if (showChanged) {
+        keys = keys.filter(k => (translationData[k] || '') !== (originalTranslations[k] || ''));
+      }
+      if (search) {
+        keys = keys.filter(k => k.toLowerCase().includes(search) ||
+          (translationData[k] || '').toLowerCase().includes(search) ||
+          (originalTranslations[k] || '').toLowerCase().includes(search));
+      }
+
+      if (!keys.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-muted" style="text-align:center;padding:20px;">No translations found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = keys.map(key => {
+        const enVal = originalTranslations[key] || '';
+        const transVal = translationData[key] || '';
+        let status = 'complete';
+        let statusLabel = 'Complete';
+        let statusClass = 'status-complete';
+        if (!transVal.trim()) {
+          status = 'missing';
+          statusLabel = 'Missing';
+          statusClass = 'status-missing';
+        } else if (transVal !== enVal && enVal) {
+          status = 'modified';
+          statusLabel = 'Modified';
+          statusClass = 'status-modified';
+        }
+        return `
+          <tr>
+            <td><code style="font-size:0.8rem;">${key}</code></td>
+            <td>${enVal || '-'}</td>
+            <td>
+              <input type="text" class="translation-input" data-key="${key}" value="${transVal}" style="width:100%; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:6px; padding:6px 10px; color:var(--text-primary);">
+            </td>
+            <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+            <td>
+              <button class="edit-btn" onclick="openEditModal('${key}')"><i class="bi bi-pencil"></i></button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.translation-input').forEach(input => {
+        input.addEventListener('change', function() {
+          const key = this.dataset.key;
+          translationData[key] = this.value;
+          if (autoSave) saveAllTranslations();
+          else renderTable();
+        });
+        input.addEventListener('input', function() {
+          const key = this.dataset.key;
+          translationData[key] = this.value;
+          if (autoSave) saveAllTranslations();
+        });
+      });
+    }
+
+    async function saveAllTranslations() {
+      const payload = {};
+      for (const key of allKeys) {
+        if (translationData[key] !== undefined && translationData[key] !== null) {
+          payload[key] = translationData[key];
+        }
+      }
+      const res = await fetchFn(`/api/translations/${currentLangCode}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        originalTranslations = { ...translationData };
+        renderTable();
+        renderTabs();
+        renderStats();
+        if (!autoSave) window.showToast('success', 'Translations saved');
+      } else {
+        window.showToast('error', 'Failed to save translations');
+      }
+    }
+
+    function openEditModal(key) {
+      editingKey = key;
+      document.getElementById('edit-key').value = key;
+      document.getElementById('edit-key-display').value = key;
+      document.getElementById('edit-english').value = originalTranslations[key] || '';
+      document.getElementById('edit-translation').value = translationData[key] || '';
+      document.getElementById('edit-notes').value = '';
+      document.getElementById('edit-translation-modal').style.display = 'flex';
+      document.getElementById('edit-translation').focus();
+    }
+
+    function saveAndNext() {
+      saveSingleTranslation();
+      const keys = allKeys.filter(k => k !== editingKey);
+      const next = keys.find(k => !translationData[k] || !translationData[k].trim());
+      if (next) openEditModal(next);
+      else {
+        window.showToast('success', 'All translations are complete!');
+        closeModal('edit-translation-modal');
+      }
+    }
+
+    async function saveSingleTranslation() {
+      const key = document.getElementById('edit-key').value;
+      const value = document.getElementById('edit-translation').value.trim();
+      translationData[key] = value;
+      await saveAllTranslations();
+    }
+
+    // ---- Add Language ----
+    document.getElementById('add-language-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-lang-name').value.trim();
+      const code = document.getElementById('new-lang-code').value.trim().toLowerCase();
+      const flag = document.getElementById('new-lang-flag').value.trim() || '🌐';
+      const enabled = document.getElementById('new-lang-enabled').checked;
+      const copyFrom = document.getElementById('new-lang-copy-from').value;
+
+      if (!name || !code) { window.showToast('warning', 'Name and code are required'); return; }
+
+      const payload = { name, code, flag, enabled, copyFrom };
+      const res = await fetchFn('/api/translations/languages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        window.showToast('success', `Language ${name} added`);
+        closeModal('add-language-modal');
+        await init();
+      } else {
+        const err = await res.json();
+        window.showToast('error', err.error || 'Failed to add language');
+      }
+    });
+
+    // ---- Import/Export ----
+    let importTab = 'file';
+    function switchImportTab(tab) {
+      importTab = tab;
+      document.querySelectorAll('.import-options .btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.import-options .btn[data-tab="${tab}"]`).classList.add('active');
+      document.getElementById('import-file-section').style.display = tab === 'file' ? 'block' : 'none';
+      document.getElementById('import-paste-section').style.display = tab === 'paste' ? 'block' : 'none';
+      populateImportDropdowns();
+    }
+    window.switchImportTab = switchImportTab;
+
+    function populateImportDropdowns() {
+      const select1 = document.getElementById('import-target-lang');
+      const select2 = document.getElementById('import-target-lang-paste');
+      const opts = languages.map(l => `<option value="${l.code}">${l.name}</option>`).join('');
+      select1.innerHTML = opts;
+      select2.innerHTML = opts;
+    }
+
+    function importJSON() {
+      document.getElementById('import-modal').style.display = 'flex';
+      switchImportTab('file');
+      document.getElementById('import-preview').style.display = 'none';
+      document.getElementById('import-json-text').value = '';
+    }
+
+    function exportJSON() {
+      document.getElementById('export-modal').style.display = 'flex';
+      const select = document.getElementById('export-lang');
+      select.innerHTML = languages.map(l => `<option value="${l.code}">${l.name}</option>`).join('');
+    }
+
+    function confirmExport() {
+      const lang = document.getElementById('export-lang').value;
+      const format = document.getElementById('export-format').value;
+      window.location.href = `/api/translations/export/${lang}?format=${format}`;
+      closeModal('export-modal');
+    }
+
+    async function confirmImport() {
+      if (importTab === 'file') {
+        const file = document.getElementById('import-file').files[0];
+        if (!file) { window.showToast('warning', 'Please select a file'); return; }
+        const targetLang = document.getElementById('import-target-lang').value;
+        // For demo, we'll show a message – in production, send file to server
+        window.showToast('info', 'File import is ready for server integration.');
+        closeModal('import-modal');
+      } else {
+        const jsonText = document.getElementById('import-json-text').value.trim();
+        if (!jsonText) { window.showToast('warning', 'Please paste JSON'); return; }
+        try {
+          const parsed = JSON.parse(jsonText);
+          const targetLang = document.getElementById('import-target-lang-paste').value;
+          const res = await fetchFn(`/api/translations/${targetLang}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsed)
+          });
+          if (res.ok) {
+            window.showToast('success', 'Translations imported');
+            closeModal('import-modal');
+            await loadTranslations(currentLangCode);
+            renderTable();
+            renderStats();
+            renderTabs();
+          } else {
+            const err = await res.json();
+            window.showToast('error', err.error || 'Import failed');
+          }
+        } catch (e) {
+          window.showToast('error', 'Invalid JSON: ' + e.message);
+        }
+      }
+    }
+    window.confirmImport = confirmImport;
+
+    // ---- Scan Missing ----
+    async function scanMissing() {
+      document.getElementById('scan-modal').style.display = 'flex';
+      const container = document.getElementById('scan-results');
+      container.innerHTML = '<p>Scanning...</p>';
+      const res = await fetchFn('/api/translations/scan-missing');
+      if (res.ok) {
+        const data = await res.json();
+        let html = `<p><strong>Total keys:</strong> ${data.totalKeys}</p>`;
+        html += `<p><strong>Missing in ${data.language}:</strong> ${data.missingCount}</p>`;
+        html += `<p><strong>Completion:</strong> ${data.completion}%</p>`;
+        if (data.missingKeys && data.missingKeys.length) {
+          html += `<ul>`;
+          data.missingKeys.forEach(k => { html += `<li>${k}</li>`; });
+          html += `</ul>`;
+        } else {
+          html += `<p class="text-muted">All translations are complete!</p>`;
+        }
+        container.innerHTML = html;
+      } else {
+        container.innerHTML = '<p class="text-muted">Failed to scan.</p>';
+      }
+    }
+
+    // ---- JSON Editor Modal ----
+    function showJSONPreview() {
+      const modal = document.getElementById('json-modal');
+      const label = document.getElementById('json-modal-lang');
+      const content = document.getElementById('json-modal-content');
+      label.textContent = currentLangCode;
+      const jsonObj = {};
+      for (const key of allKeys) {
+        jsonObj[key] = translationData[key] || '';
+      }
+      content.value = JSON.stringify(jsonObj, null, 2);
+      modal.style.display = 'flex';
+    }
+    window.showJSONPreview = showJSONPreview;
+
+    async function saveJSON() {
+      const modal = document.getElementById('json-modal');
+      const content = document.getElementById('json-modal-content');
+      try {
+        const parsed = JSON.parse(content.value);
+        const res = await fetchFn(`/api/translations/${currentLangCode}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed)
+        });
+        if (res.ok) {
+          window.showToast('success', 'JSON saved');
+          await loadTranslations(currentLangCode);
+          renderTable();
+          renderStats();
+          renderTabs();
+          closeModal('json-modal');
+        } else {
+          const err = await res.json();
+          window.showToast('error', err.error || 'Failed to save JSON');
+        }
+      } catch (e) {
+        window.showToast('error', 'Invalid JSON: ' + e.message);
+      }
+    }
+    window.saveJSON = saveJSON;
+
+    // ---- Language settings ----
+    async function saveSettings() {
+      const settings = {
+        loginSelector: document.getElementById('setting-login-selector').checked,
+        userChange: document.getElementById('setting-user-change').checked,
+        autoDetect: document.getElementById('setting-auto-detect').checked,
+        fallbackEnglish: document.getElementById('setting-fallback').checked,
+        cacheTranslations: document.getElementById('setting-cache').checked,
+      };
+      const res = await fetchFn('/api/translations/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+      if (res.ok) window.showToast('success', 'Settings saved');
+      else window.showToast('error', 'Failed to save settings');
+    }
+
+    function populateDropdowns() {
+      const copyFrom = document.getElementById('new-lang-copy-from');
+      copyFrom.innerHTML = '<option value="">None</option>' + languages.map(l => `<option value="${l.code}">${l.name}</option>`).join('');
+    }
+
+    function bindEvents() {
+      searchInput.addEventListener('input', renderTable);
+      filterMissing.addEventListener('change', renderTable);
+      filterChanged.addEventListener('change', renderTable);
+      autoSaveCheck.addEventListener('change', function() { autoSave = this.checked; });
+
+      document.getElementById('edit-translation-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveSingleTranslation();
+        closeModal('edit-translation-modal');
+        renderTable();
+        renderTabs();
+        renderStats();
+        window.showToast('success', 'Translation saved');
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          if (document.getElementById('edit-translation-modal').style.display === 'flex') {
+            saveSingleTranslation();
+            closeModal('edit-translation-modal');
+          } else {
+            saveAllTranslations();
+          }
+          window.showToast('success', 'Saved');
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+          e.preventDefault();
+          searchInput.focus();
+        }
+        if (e.key === 'Escape') {
+          document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+        }
+      });
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+    window.closeModal = closeModal;
+
+    // ---- Expose functions ----
+    window.switchLanguage = switchLanguage;
+    window.toggleLanguage = toggleLanguage;
+    window.openEditModal = openEditModal;
+    window.saveAndNext = saveAndNext;
+    window.saveAllTranslations = saveAllTranslations;
+    window.importJSON = importJSON;
+    window.exportJSON = exportJSON;
+    window.confirmExport = confirmExport;
+    window.scanMissing = scanMissing;
+    window.saveSettings = saveSettings;
+    window.openAddLanguageModal = function() {
+      document.getElementById('add-language-modal').style.display = 'flex';
+      populateDropdowns();
+    };
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

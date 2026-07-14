@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Settings' }) %>
+  <style>
+    .settings-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      border-bottom: 1px solid var(--glass-border);
+      margin-bottom: 24px;
+      padding-bottom: 4px;
+    }
+    .settings-tab {
+      padding: 10px 18px;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      border-bottom: 2px solid transparent;
+    }
+    .settings-tab:hover { color: var(--text-primary); background: var(--glass); }
+    .settings-tab.active { color: var(--text-primary); border-bottom-color: var(--accent-cyan); background: var(--glass); }
+    .settings-panel { display: none; }
+    .settings-panel.active { display: block; }
+    .setting-group { margin-bottom: 24px; }
+    .setting-group h4 { margin-bottom: 12px; font-weight: 600; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-row label { font-size: 0.9rem; flex: 1; }
+    .setting-row input[type="text"],
+    .setting-row input[type="number"],
+    .setting-row input[type="color"],
+    .setting-row select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      min-width: 160px;
+    }
+    .setting-row input[type="checkbox"] {
+      width: 42px;
+      height: 24px;
+      appearance: none;
+      background: var(--glass);
+      border-radius: 999px;
+      position: relative;
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .setting-row input[type="checkbox"]::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.15s ease;
+    }
+    .setting-row input[type="checkbox"]:checked {
+      background: linear-gradient(135deg, var(--accent-blurple), var(--accent-cyan));
+    }
+    .setting-row input[type="checkbox"]:checked::after { transform: translateX(18px); }
+    .setting-row .hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-left: 12px;
+    }
+    .system-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .system-info-grid .info-item {
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .system-info-grid .info-item .label { color: var(--text-muted); }
+    .system-info-grid .info-item .value { font-family: var(--font-mono); font-size: 0.85rem; }
+    .role-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      margin: 2px 6px 2px 0;
+      background: rgba(79,209,255,0.15);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+    }
+    .role-badge i { font-size: 0.7rem; margin-right: 4px; }
+    @media (max-width: 768px) {
+      .setting-row { flex-wrap: wrap; gap: 8px; }
+      .setting-row input[type="text"],
+      .setting-row input[type="number"],
+      .setting-row select { width: 100%; min-width: unset; }
+      .system-info-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'settings' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content">
+        <h1 style="margin-bottom: 8px;"><%= t['settings.title'] || 'Settings' %></h1>
+        <p class="text-muted" style="margin-bottom: 24px;"><%= t['settings.subtitle'] || 'Manage your dashboard configuration' %></p>
+
+        <!-- Tabs -->
+        <div class="settings-tabs" id="settings-tabs">
+          <div class="settings-tab active" data-tab="user"><%= t['settings.tabs.user'] || 'My Settings' %></div>
+          <% if (user.permissions?.includes('manage_bot') || user.permissions?.includes('owner_panel') || user.isOwner) { %>
+            <div class="settings-tab" data-tab="general"><%= t['settings.tabs.general'] || 'General' %></div>
+            <div class="settings-tab" data-tab="appearance"><%= t['settings.tabs.appearance'] || 'Appearance' %></div>
+            <div class="settings-tab" data-tab="maintenance"><%= t['settings.tabs.maintenance'] || 'Maintenance' %></div>
+            <div class="settings-tab" data-tab="security"><%= t['settings.tabs.security'] || 'Security' %></div>
+            <div class="settings-tab" data-tab="discord"><%= t['settings.tabs.discord'] || 'Discord' %></div>
+            <div class="settings-tab" data-tab="notifications"><%= t['settings.tabs.notifications'] || 'Notifications' %></div>
+            <div class="settings-tab" data-tab="database"><%= t['settings.tabs.database'] || 'Database' %></div>
+            <div class="settings-tab" data-tab="system"><%= t['settings.tabs.system'] || 'System' %></div>
+          <% } %>
+        </div>
+
+        <!-- Panels -->
+        <div id="settings-panels">
+          <!-- User panel -->
+          <div class="settings-panel active" id="panel-user">
+            <div class="glass card">
+              <div class="setting-group">
+                <h4><%= t['settings.my_settings'] || 'My Settings' %></h4>
+                <div class="setting-row">
+                  <label><%= t['settings.theme'] || 'Theme' %></label>
+                  <select id="user-theme">
+                    <option value="dark"><%= t['settings.themes.dark'] || 'Dark' %></option>
+                    <option value="light"><%= t['settings.themes.light'] || 'Light' %></option>
+                  </select>
+                </div>
+                <div class="setting-row">
+                  <label><%= t['settings.language'] || 'Language' %></label>
+                  <select id="user-language">
+                    <option value="en"><%= t['settings.languages.en'] || 'English' %></option>
+                    <option value="hi"><%= t['settings.languages.hi'] || 'हिन्दी' %></option>
+                    <option value="gu"><%= t['settings.languages.gu'] || 'ગુજરાતી' %></option>
+                    <option value="ta"><%= t['settings.languages.ta'] || 'தமிழ்' %></option>
+                    <option value="te"><%= t['settings.languages.te'] || 'తెలుగు' %></option>
+                    <option value="ru"><%= t['settings.languages.ru'] || 'Русский' %></option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn btn-primary" id="save-user-btn"><%= t['settings.save'] || 'Save My Settings' %></button>
+              <span id="user-save-msg" class="text-muted" style="margin-left:12px;"></span>
+            </div>
+
+            <!-- Your Roles -->
+            <div class="glass card mt-24">
+              <h4><%= t['settings.your_roles'] || 'Your Roles' %></h4>
+              <div style="margin-top: 8px;">
+                <% if (user.rolesFull && user.rolesFull.length) { %>
+                  <% user.rolesFull.forEach(r => { %>
+                    <span class="role-badge" style="background: <%= r.color %>30; color: <%= r.color %>; border-color: <%= r.color %>;">
+                      <i class="bi <%= r.icon || 'bi-shield' %>"></i> <%= r.name %>
+                    </span>
+                  <% }) %>
+                <% } else { %>
+                  <p class="text-muted" style="font-size:0.85rem;"><%= t['settings.no_roles'] || 'No roles assigned.' %></p>
+                <% } %>
+              </div>
+            </div>
+          </div>
+
+          <!-- Global panels (admin only) -->
+          <% if (user.permissions?.includes('manage_bot') || user.permissions?.includes('owner_panel') || user.isOwner) { %>
+            <!-- General -->
+            <div class="settings-panel" id="panel-general">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.general'] || 'General Settings' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.dashboard_name'] || 'Dashboard Name' %></label>
+                    <input type="text" id="app-name" placeholder="HyperCity" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.default_language'] || 'Default Language' %></label>
+                    <select id="default-language">
+                      <option value="en"><%= t['settings.languages.en'] || 'English' %></option>
+                      <option value="hi"><%= t['settings.languages.hi'] || 'हिन्दी' %></option>
+                      <option value="gu"><%= t['settings.languages.gu'] || 'ગુજરાતી' %></option>
+                      <option value="ta"><%= t['settings.languages.ta'] || 'தமிழ்' %></option>
+                      <option value="te"><%= t['settings.languages.te'] || 'తెలుగు' %></option>
+                      <option value="ru"><%= t['settings.languages.ru'] || 'Русский' %></option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.timezone'] || 'Timezone' %></label>
+                    <select id="timezone">
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">America/New_York</option>
+                      <option value="Europe/London">Europe/London</option>
+                      <option value="Europe/Paris">Europe/Paris</option>
+                      <option value="Asia/Kolkata">Asia/Kolkata</option>
+                      <option value="Asia/Tokyo">Asia/Tokyo</option>
+                      <option value="Australia/Sydney">Australia/Sydney</option>
+                    </select>
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.date_format'] || 'Date Format' %></label>
+                    <select id="date-format">
+                      <option value="MM/DD/YYYY"><%= t['settings.date_formats.mdy'] || 'MM/DD/YYYY' %></option>
+                      <option value="DD/MM/YYYY"><%= t['settings.date_formats.dmy'] || 'DD/MM/YYYY' %></option>
+                      <option value="YYYY-MM-DD"><%= t['settings.date_formats.ymd'] || 'YYYY-MM-DD' %></option>
+                    </select>
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="save-general-btn"><%= t['settings.save_all'] || 'Save All' %></button>
+                <span id="general-save-msg" class="text-muted" style="margin-left:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Appearance -->
+            <div class="settings-panel" id="panel-appearance">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.appearance'] || 'Appearance' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.accent_color'] || 'Accent Color' %></label>
+                    <input type="color" id="accent-color" value="#5865f2" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.sidebar_collapsed'] || 'Sidebar collapsed by default' %></label>
+                    <input type="checkbox" id="sidebar-collapsed" />
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="save-appearance-btn"><%= t['settings.save_all'] || 'Save All' %></button>
+                <span id="appearance-save-msg" class="text-muted" style="margin-left:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Maintenance -->
+            <div class="settings-panel" id="panel-maintenance">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.maintenance'] || 'Maintenance Mode' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.enable_maintenance'] || 'Enable Maintenance Mode' %></label>
+                    <input type="checkbox" id="maintenance-mode" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.maintenance_message'] || 'Maintenance Message' %></label>
+                    <input type="text" id="maintenance-message" placeholder="We are undergoing maintenance..." />
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="save-maintenance-btn"><%= t['settings.save_all'] || 'Save All' %></button>
+                <span id="maintenance-save-msg" class="text-muted" style="margin-left:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Security -->
+            <div class="settings-panel" id="panel-security">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.security'] || 'Security' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.csrf'] || 'Enable CSRF Protection' %></label>
+                    <input type="checkbox" id="csrf-enabled" checked disabled />
+                    <span class="hint"><%= t['settings.always_enabled'] || 'Always enabled' %></span>
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.rate_limiting'] || 'Enable Rate Limiting' %></label>
+                    <input type="checkbox" id="rate-limiting" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.max_login_attempts'] || 'Max Login Attempts' %></label>
+                    <input type="number" id="max-login-attempts" value="5" min="1" max="20" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.audit_logs'] || 'Enable Audit Logs' %></label>
+                    <input type="checkbox" id="audit-logs" checked disabled />
+                    <span class="hint"><%= t['settings.always_enabled'] || 'Always enabled' %></span>
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="save-security-btn"><%= t['settings.save_all'] || 'Save All' %></button>
+                <span id="security-save-msg" class="text-muted" style="margin-left:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Discord -->
+            <div class="settings-panel" id="panel-discord">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.discord'] || 'Discord Integration' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.client_id'] || 'Client ID' %></label>
+                    <input type="text" id="discord-client-id" placeholder="Your Discord Client ID" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.client_secret'] || 'Client Secret' %></label>
+                    <input type="password" id="discord-client-secret" placeholder="Your Discord Client Secret" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.redirect_uri'] || 'Redirect URI' %></label>
+                    <input type="text" id="discord-redirect-uri" placeholder="https://your-domain/auth/discord/callback" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.guild_id'] || 'Guild ID' %></label>
+                    <input type="text" id="discord-guild-id" placeholder="Guild ID" />
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="save-discord-btn"><%= t['settings.save_all'] || 'Save All' %></button>
+                <span id="discord-save-msg" class="text-muted" style="margin-left:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="settings-panel" id="panel-notifications">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.notifications'] || 'Notifications' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.browser_notifications'] || 'Enable Browser Notifications' %></label>
+                    <input type="checkbox" id="browser-notifications" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.discord_webhook'] || 'Enable Discord Webhook' %></label>
+                    <input type="checkbox" id="discord-webhook" />
+                  </div>
+                  <div class="setting-row">
+                    <label><%= t['settings.webhook_url'] || 'Webhook URL' %></label>
+                    <input type="text" id="webhook-url" placeholder="https://discord.com/api/webhooks/..." />
+                  </div>
+                </div>
+                <button class="btn btn-primary" id="save-notifications-btn"><%= t['settings.save_all'] || 'Save All' %></button>
+                <span id="notifications-save-msg" class="text-muted" style="margin-left:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Database -->
+            <div class="settings-panel" id="panel-database">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.database'] || 'Database Management' %></h4>
+                  <div class="setting-row">
+                    <label><%= t['settings.db_size'] || 'Database Size' %></label>
+                    <span id="db-size" class="mono">Calculating...</span>
+                  </div>
+                  <div class="setting-row" style="gap:12px;">
+                    <button class="btn btn-primary btn-sm" onclick="window.location.href='/api/backups'"><%= t['settings.manage_backups'] || 'Manage Backups' %></button>
+                    <button class="btn btn-ghost btn-sm" onclick="optimizeDatabase()"><%= t['settings.optimize'] || 'Optimize' %></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- System -->
+            <div class="settings-panel" id="panel-system">
+              <div class="glass card">
+                <div class="setting-group">
+                  <h4><%= t['settings.system'] || 'System Information' %></h4>
+                  <div class="system-info-grid" id="system-info">
+                    <div class="info-item"><span class="label"><%= t['settings.version'] || 'Dashboard Version' %></span><span class="value" id="sys-version">1.0.0</span></div>
+                    <div class="info-item"><span class="label"><%= t['settings.node'] || 'Node.js' %></span><span class="value" id="sys-node">-</span></div>
+                    <div class="info-item"><span class="label"><%= t['settings.platform'] || 'Platform' %></span><span class="value" id="sys-platform">-</span></div>
+                    <div class="info-item"><span class="label"><%= t['settings.environment'] || 'Environment' %></span><span class="value" id="sys-env">-</span></div>
+                    <div class="info-item"><span class="label"><%= t['settings.uptime'] || 'Uptime' %></span><span class="value" id="sys-uptime">-</span></div>
+                    <div class="info-item"><span class="label"><%= t['settings.memory'] || 'Memory Usage' %></span><span class="value" id="sys-memory">-</span></div>
+                    <div class="info-item"><span class="label"><%= t['settings.db_size'] || 'Database Size' %></span><span class="value" id="sys-db">-</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <script>
+    // ============================================================
+    // SETTINGS PAGE – with language cookie on save
+    // ============================================================
+    console.log('[settings] Script started');
+
+    try {
+      const userData = <%- JSON.stringify(user || {}) %>;
+      const csrfToken = '<%= csrfToken %>';
+
+      const isAdmin = userData.permissions?.includes('manage_bot') || userData.permissions?.includes('owner_panel') || userData.isOwner;
+      console.log('[settings] Is admin:', isAdmin);
+
+      const fetchFn = (typeof apiFetch !== 'undefined') ? apiFetch : function(url, opts) {
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        opts.headers['x-csrf-token'] = csrfToken;
+        return fetch(url, opts);
+      };
+
+      let globalSettings = {};
+      let userSettings = {};
+
+      // ---- Tab switching ----
+      document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+          this.classList.add('active');
+          document.getElementById('panel-' + this.dataset.tab).classList.add('active');
+        });
+      });
+
+      // ---- Apply dashboard name ----
+      function applyAppName(name) {
+        const brandTexts = document.querySelectorAll('.sidebar-brand .brand-text');
+        brandTexts.forEach(el => { if (el) el.textContent = name || 'HyperCity'; });
+        if (name) document.title = name + ' Dashboard';
+      }
+
+      // ---- Load settings ----
+      async function loadSettings() {
+        try {
+          const res = await fetchFn('/api/settings');
+          if (!res.ok) throw new Error('Failed to load settings');
+          const data = await res.json();
+          console.log('[settings] Loaded data:', data);
+
+          userSettings = data;
+          document.getElementById('user-theme').value = data.theme || 'dark';
+          document.getElementById('user-language').value = data.language || 'en';
+
+          if (data.global && isAdmin) {
+            globalSettings = data.global;
+            // General
+            document.getElementById('app-name').value = globalSettings.appName || 'HyperCity';
+            document.getElementById('default-language').value = globalSettings.defaultLanguage || 'en';
+            document.getElementById('timezone').value = globalSettings.timezone || 'UTC';
+            document.getElementById('date-format').value = globalSettings.dateFormat || 'MM/DD/YYYY';
+
+            applyAppName(globalSettings.appName);
+
+            // Appearance
+            document.getElementById('accent-color').value = globalSettings.accentColor || '#5865f2';
+            document.getElementById('sidebar-collapsed').checked = globalSettings.sidebarCollapsed || false;
+
+            // Maintenance
+            document.getElementById('maintenance-mode').checked = globalSettings.maintenance_mode || false;
+            document.getElementById('maintenance-message').value = globalSettings.maintenance_message || 'HyperCity is undergoing scheduled maintenance.';
+
+            // Security
+            document.getElementById('rate-limiting').checked = globalSettings.rateLimiting || false;
+            document.getElementById('max-login-attempts').value = globalSettings.maxLoginAttempts || 5;
+
+            // Discord
+            document.getElementById('discord-client-id').value = globalSettings.discordClientId || '';
+            document.getElementById('discord-client-secret').value = globalSettings.discordClientSecret || '';
+            document.getElementById('discord-redirect-uri').value = globalSettings.discordRedirectUri || '';
+            document.getElementById('discord-guild-id').value = globalSettings.discordGuildId || '';
+
+            // Notifications
+            document.getElementById('browser-notifications').checked = globalSettings.browserNotifications || false;
+            document.getElementById('discord-webhook').checked = globalSettings.discordWebhook || false;
+            document.getElementById('webhook-url').value = globalSettings.webhookUrl || '';
+          }
+        } catch (err) {
+          console.error('[settings] Load error:', err);
+          window.showToast('error', 'Failed to load settings');
+        }
+      }
+
+      // ---- Save user settings only ----
+      async function saveUserSettings() {
+        try {
+          const payload = {
+            theme: document.getElementById('user-theme').value,
+            language: document.getElementById('user-language').value,
+          };
+
+          const res = await fetchFn('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to save settings');
+          }
+
+          // --- Set language cookie for instant reload ---
+          if (payload.language) {
+            document.cookie = `language=${payload.language}; path=/; max-age=31536000`;
+          }
+
+          window.showToast('success', 'Settings saved successfully');
+          setTimeout(() => location.reload(), 800);
+        } catch (err) {
+          console.error('[settings] Save user error:', err);
+          window.showToast('error', 'Failed to save: ' + err.message);
+        }
+      }
+
+      // ---- Save global settings (admin only) ----
+      async function saveGlobalSettings() {
+        if (!isAdmin) {
+          window.showToast('warning', 'You do not have permission to change global settings.');
+          return;
+        }
+        try {
+          const globalPayload = {
+            appName: document.getElementById('app-name').value,
+            defaultLanguage: document.getElementById('default-language').value,
+            timezone: document.getElementById('timezone').value,
+            dateFormat: document.getElementById('date-format').value,
+            accentColor: document.getElementById('accent-color').value,
+            sidebarCollapsed: document.getElementById('sidebar-collapsed').checked,
+            maintenance_mode: document.getElementById('maintenance-mode').checked,
+            maintenance_message: document.getElementById('maintenance-message').value,
+            rateLimiting: document.getElementById('rate-limiting').checked,
+            maxLoginAttempts: parseInt(document.getElementById('max-login-attempts').value) || 5,
+            discordClientId: document.getElementById('discord-client-id').value,
+            discordClientSecret: document.getElementById('discord-client-secret').value,
+            discordRedirectUri: document.getElementById('discord-redirect-uri').value,
+            discordGuildId: document.getElementById('discord-guild-id').value,
+            browserNotifications: document.getElementById('browser-notifications').checked,
+            discordWebhook: document.getElementById('discord-webhook').checked,
+            webhookUrl: document.getElementById('webhook-url').value,
+          };
+
+          const payload = { global: globalPayload };
+
+          const res = await fetchFn('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to save settings');
+          }
+
+          window.showToast('success', 'Global settings saved');
+          setTimeout(() => location.reload(), 800);
+        } catch (err) {
+          console.error('[settings] Save global error:', err);
+          window.showToast('error', 'Failed to save: ' + err.message);
+        }
+      }
+
+      // ---- System info ----
+      async function loadSystemInfo() {
+        try {
+          const res = await fetchFn('/api/system');
+          if (!res.ok) throw new Error('Failed to load system info');
+          const data = await res.json();
+          document.getElementById('sys-version').textContent = '1.0.0';
+          document.getElementById('sys-node').textContent = data.nodeVersion || '-';
+          document.getElementById('sys-platform').textContent = `${data.platform} (${data.arch})`;
+          document.getElementById('sys-env').textContent = data.env || '-';
+          document.getElementById('sys-uptime').textContent = data.uptime || '-';
+          document.getElementById('sys-memory').textContent = data.memoryUsage || '-';
+          document.getElementById('sys-db').textContent = data.dbSize || '-';
+          document.getElementById('db-size').textContent = data.dbSize || 'N/A';
+        } catch (err) {
+          console.error('System info error:', err);
+        }
+      }
+
+      // ---- Optimize database ----
+      async function optimizeDatabase() {
+        if (!confirm('Optimize database? This may take a moment.')) return;
+        try {
+          const res = await fetchFn('/api/db/optimize', { method: 'POST' });
+          if (!res.ok) throw new Error('Optimize failed');
+          window.showToast('success', 'Database optimized');
+          loadSystemInfo();
+        } catch (err) {
+          window.showToast('error', 'Optimize failed: ' + err.message);
+        }
+      }
+
+      // ---- Attach save button handlers ----
+      document.getElementById('save-user-btn').addEventListener('click', saveUserSettings);
+
+      if (isAdmin) {
+        document.getElementById('save-general-btn').addEventListener('click', saveGlobalSettings);
+        document.getElementById('save-appearance-btn').addEventListener('click', saveGlobalSettings);
+        document.getElementById('save-maintenance-btn').addEventListener('click', saveGlobalSettings);
+        document.getElementById('save-security-btn').addEventListener('click', saveGlobalSettings);
+        document.getElementById('save-discord-btn').addEventListener('click', saveGlobalSettings);
+        document.getElementById('save-notifications-btn').addEventListener('click', saveGlobalSettings);
+      }
+
+      // ---- Init ----
+      document.addEventListener('DOMContentLoaded', () => {
+        loadSettings();
+        loadSystemInfo();
+      });
+
+      // ---- Make functions global ----
+      window.optimizeDatabase = optimizeDatabase;
+
+    } catch (err) {
+      console.error('[settings] FATAL script error:', err);
+    }
+  </script>
+</body>
+</html>

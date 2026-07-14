@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Owner Panel' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'owner' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content">
+        <h1 style="margin-bottom: 24px;">Owner Panel</h1>
+
+        <!-- Stats row -->
+        <div class="grid grid-stats mb-24" id="stats-container">
+          <div class="glass card stat-card">
+            <div class="stat-label"><span>Total Users</span></div>
+            <div class="stat-value" id="stat-users">…</div>
+          </div>
+          <div class="glass card stat-card">
+            <div class="stat-label"><span>Active Sessions</span></div>
+            <div class="stat-value" id="stat-sessions">…</div>
+          </div>
+          <div class="glass card stat-card">
+            <div class="stat-label"><span>Signups (last 7d)</span></div>
+            <div class="stat-value" id="stat-signups">…</div>
+          </div>
+        </div>
+
+        <!-- Announcements & Events -->
+        <div class="grid grid-2 mb-24">
+          <div class="glass card">
+            <div class="flex-between">
+              <h3 class="section-title">Announcements</h3>
+              <button class="btn btn-primary btn-sm" onclick="openAnnouncementModal()">+ New</button>
+            </div>
+            <div id="announcements-list" style="margin-top: 12px;">
+              <p class="text-muted">Loading announcements…</p>
+            </div>
+          </div>
+          <div class="glass card">
+            <div class="flex-between">
+              <h3 class="section-title">Events</h3>
+              <button class="btn btn-primary btn-sm" onclick="openEventModal()">+ New</button>
+            </div>
+            <div id="events-list" style="margin-top: 12px;">
+              <p class="text-muted">Loading events…</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guild Logs -->
+        <div class="glass card">
+          <h3 class="section-title">Guild Logs</h3>
+          <div id="guild-logs" style="margin-top: 12px; max-height: 300px; overflow-y: auto;">
+            <p class="text-muted">Loading logs…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Announcement -->
+  <div id="announcement-modal" class="modal" style="display:none;">
+    <div class="modal-content glass-strong" style="max-width: 500px;">
+      <div class="flex-between">
+        <h3>New Announcement</h3>
+        <button class="modal-close" onclick="closeModal('announcement-modal')">&times;</button>
+      </div>
+      <form id="announcement-form">
+        <div class="field">
+          <label>Title</label>
+          <input type="text" id="announcement-title" required>
+        </div>
+        <div class="field">
+          <label>Body</label>
+          <textarea id="announcement-body" rows="4" required></textarea>
+        </div>
+        <div class="flex gap-12" style="margin-top: 16px;">
+          <button type="submit" class="btn btn-primary">Publish</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('announcement-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal for Event -->
+  <div id="event-modal" class="modal" style="display:none;">
+    <div class="modal-content glass-strong" style="max-width: 500px;">
+      <div class="flex-between">
+        <h3>New Event</h3>
+        <button class="modal-close" onclick="closeModal('event-modal')">&times;</button>
+      </div>
+      <form id="event-form">
+        <div class="field">
+          <label>Event Name</label>
+          <input type="text" id="event-name" required>
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="event-description" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="datetime-local" id="event-date">
+        </div>
+        <div class="flex gap-12" style="margin-top: 16px;">
+          <button type="submit" class="btn btn-primary">Create</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('event-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <style>
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: rgba(15, 12, 28, 0.97);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+    .modal-close {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .modal-close:hover { background: var(--glass-strong); }
+    .stat-value { font-size: 2rem; font-weight: 600; font-family: var(--font-mono); }
+    .grid-stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .list-item { padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
+    .list-item:last-child { border-bottom: none; }
+    .delete-btn { background: none; border: none; color: var(--danger); cursor: pointer; }
+  </style>
+
+  <script>
+    const CSRF_TOKEN = "<%= csrfToken %>";
+    let currentAnnouncementId = null;
+    let currentEventId = null;
+
+    // ----- Stats -----
+    async function loadStats() {
+      try {
+        const res = await apiFetch('/api/owner/analytics');
+        if (!res.ok) throw new Error('Failed to load stats');
+        const data = await res.json();
+        document.getElementById('stat-users').textContent = data.totalUsers ?? '0';
+        document.getElementById('stat-sessions').textContent = data.activeSessions ?? '0';
+        document.getElementById('stat-signups').textContent = data.signupsLast7Days ?? '0';
+      } catch (e) {
+        console.error('Stats error:', e);
+        ['stat-users','stat-sessions','stat-signups'].forEach(id => document.getElementById(id).textContent = 'Error');
+      }
+    }
+
+    // ----- Announcements -----
+    async function loadAnnouncements() {
+      const container = document.getElementById('announcements-list');
+      try {
+        const res = await apiFetch('/api/owner/announcements');
+        if (!res.ok) throw new Error('Failed to load announcements');
+        const data = await res.json();
+        if (!data.length) {
+          container.innerHTML = '<p class="text-muted">No announcements.</p>';
+          return;
+        }
+        container.innerHTML = data.map(a => `
+          <div class="list-item">
+            <div class="flex-between">
+              <strong>${a.title}</strong>
+              <button class="delete-btn" onclick="deleteAnnouncement(${a.id})">&times;</button>
+            </div>
+            <div class="text-muted" style="font-size:0.85rem;">${a.body}</div>
+            <div class="text-muted" style="font-size:0.7rem; margin-top:4px;">${new Date(a.created_at).toLocaleDateString()}</div>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = '<p class="text-muted">Error loading announcements.</p>';
+        console.error(e);
+      }
+    }
+
+    async function deleteAnnouncement(id) {
+      if (!confirm('Delete this announcement?')) return;
+      try {
+        const res = await apiFetch(`/api/owner/announcements/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Delete failed');
+        window.showToast('success', 'Announcement deleted');
+        loadAnnouncements();
+      } catch (e) {
+        window.showToast('error', 'Error', e.message);
+      }
+    }
+
+    function openAnnouncementModal() {
+      document.getElementById('announcement-modal').style.display = 'flex';
+      document.getElementById('announcement-form').reset();
+    }
+
+    document.getElementById('announcement-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('announcement-title').value.trim();
+      const body = document.getElementById('announcement-body').value.trim();
+      if (!title || !body) return window.showToast('warning', 'Please fill in all fields');
+      try {
+        const res = await apiFetch('/api/owner/announcements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, body })
+        });
+        if (!res.ok) throw new Error('Failed to create announcement');
+        window.showToast('success', 'Announcement created');
+        closeModal('announcement-modal');
+        loadAnnouncements();
+      } catch (e) {
+        window.showToast('error', 'Error', e.message);
+      }
+    });
+
+    // ----- Events -----
+    async function loadEvents() {
+      const container = document.getElementById('events-list');
+      try {
+        const res = await apiFetch('/api/owner/events');
+        if (!res.ok) throw new Error('Failed to load events');
+        const data = await res.json();
+        if (!data.length) {
+          container.innerHTML = '<p class="text-muted">No events.</p>';
+          return;
+        }
+        container.innerHTML = data.map(e => `
+          <div class="list-item">
+            <div class="flex-between">
+              <strong>${e.name}</strong>
+              <button class="delete-btn" onclick="deleteEvent(${e.id})">&times;</button>
+            </div>
+            <div class="text-muted" style="font-size:0.85rem;">${e.description || ''}</div>
+            <div class="text-muted" style="font-size:0.7rem; margin-top:4px;">${e.event_date ? new Date(e.event_date).toLocaleDateString() : 'No date'}</div>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = '<p class="text-muted">Error loading events.</p>';
+        console.error(e);
+      }
+    }
+
+    async function deleteEvent(id) {
+      if (!confirm('Delete this event?')) return;
+      try {
+        const res = await apiFetch(`/api/owner/events/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Delete failed');
+        window.showToast('success', 'Event deleted');
+        loadEvents();
+      } catch (e) {
+        window.showToast('error', 'Error', e.message);
+      }
+    }
+
+    function openEventModal() {
+      document.getElementById('event-modal').style.display = 'flex';
+      document.getElementById('event-form').reset();
+    }
+
+    document.getElementById('event-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('event-name').value.trim();
+      const description = document.getElementById('event-description').value.trim();
+      const event_date = document.getElementById('event-date').value || null;
+      if (!name) return window.showToast('warning', 'Event name is required');
+      try {
+        const res = await apiFetch('/api/owner/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description, event_date })
+        });
+        if (!res.ok) throw new Error('Failed to create event');
+        window.showToast('success', 'Event created');
+        closeModal('event-modal');
+        loadEvents();
+      } catch (e) {
+        window.showToast('error', 'Error', e.message);
+      }
+    });
+
+    // ----- Guild Logs -----
+    async function loadGuildLogs() {
+      const container = document.getElementById('guild-logs');
+      try {
+        const res = await apiFetch('/api/owner/logs');
+        if (!res.ok) throw new Error('Failed to load logs');
+        const data = await res.json();
+        if (!data.length) {
+          container.innerHTML = '<p class="text-muted">No guild logs.</p>';
+          return;
+        }
+        container.innerHTML = data.map(l => `
+          <div style="padding: 8px 0; border-bottom: 1px solid var(--glass-border); font-size:0.85rem;">
+            <span class="text-muted">[${new Date(l.created_at).toLocaleString()}]</span>
+            <strong>${l.action}</strong>
+            ${l.details ? `<span class="text-muted">— ${l.details}</span>` : ''}
+            ${l.guild_id ? `<span class="badge">${l.guild_id}</span>` : ''}
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = '<p class="text-muted">Error loading logs.</p>';
+        console.error(e);
+      }
+    }
+
+    // ----- Helpers -----
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+    // Close modal on backdrop click
+    document.querySelectorAll('.modal').forEach(el => {
+      el.addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+      });
+    });
+
+    // ----- Init -----
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStats();
+      loadAnnouncements();
+      loadEvents();
+      loadGuildLogs();
+    });
+  </script>
+</body>
+</html>

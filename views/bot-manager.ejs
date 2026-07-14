@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Bot Manager' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'bot' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content">
+        <h2 style="margin-bottom:24px;">Bot Manager</h2>
+
+        <div class="grid grid-2 mb-24">
+          <div class="glass card">
+            <h3 class="section-title">Bot Configuration</h3>
+            <div class="field">
+              <label>Bot Nickname</label>
+              <input type="text" value="<%= botSettings.nickname || 'HyperCity Bot' %>" />
+            </div>
+            <div class="field">
+              <label>Status</label>
+              <select>
+                <option value="online" <%= botSettings.status === 'online' ? 'selected' : '' %>>Online</option>
+                <option value="idle" <%= botSettings.status === 'idle' ? 'selected' : '' %>>Idle</option>
+                <option value="dnd" <%= botSettings.status === 'dnd' ? 'selected' : '' %>>Do Not Disturb</option>
+                <option value="invisible" <%= botSettings.status === 'invisible' ? 'selected' : '' %>>Invisible</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Presence Text</label>
+              <input type="text" value="<%= botSettings.presence_text || 'Watching over the city' %>" />
+            </div>
+            <button class="btn btn-primary btn-sm">Save Bot Settings</button>
+          </div>
+
+          <div class="glass card">
+            <h3 class="section-title">Active Modules</h3>
+            <div class="switch">
+              <span>Moderation</span>
+              <input type="checkbox" checked />
+            </div>
+            <div class="switch">
+              <span>Anti-spam</span>
+              <input type="checkbox" checked />
+            </div>
+            <div class="switch">
+              <span>Auto roles</span>
+              <input type="checkbox" />
+            </div>
+            <div class="switch">
+              <span>Logging</span>
+              <input type="checkbox" checked />
+            </div>
+          </div>
+        </div>
+
+        <div class="glass card">
+          <h3 class="section-title">Command Statistics</h3>
+          <table>
+            <thead><tr><th>Command</th><th>Enabled</th><th>Usage</th></tr></thead>
+            <tbody>
+              <tr><td>/warn</td><td><span class="badge">Enabled</span></td><td class="mono">3.2K</td></tr>
+              <tr><td>/kick</td><td><span class="badge">Enabled</span></td><td class="mono">1.8K</td></tr>
+              <tr><td>/ban</td><td><span class="badge">Enabled</span></td><td class="mono">890</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+</body>
+</html>

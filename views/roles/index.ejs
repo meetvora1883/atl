@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Roles & Permissions' }) %>
+</head>
+<body>
+  <%- include('../partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'roles' }) %>
+    <div class="main-wrap">
+      <%- include('../partials/topbar') %>
+
+      <div class="page-content">
+        <div class="container">
+          <div class="flex-between mb-24">
+            <div>
+              <h1 class="section-title">Roles &amp; Permissions</h1>
+              <p class="text-muted">Manage roles and their permissions across the dashboard.</p>
+            </div>
+            <button id="create-role-btn" class="btn btn-primary"><i class="bi bi-plus-circle"></i> New Role</button>
+          </div>
+
+          <div id="roles-grid" class="grid grid-3" style="gap:20px;">
+            <p class="text-muted">Loading roles...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create/Edit Modal -->
+  <div id="role-modal" class="modal" style="display:none;">
+    <div class="modal-content glass-strong">
+      <div class="flex-between" style="margin-bottom: 16px;">
+        <h3 id="modal-title" style="margin:0;">Create Role</h3>
+        <button class="modal-close-btn" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="role-form">
+        <input type="hidden" id="role-id" value="">
+        <div class="field">
+          <label>Role Name</label>
+          <input type="text" id="role-name" required>
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="role-desc" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label>Color</label>
+          <input type="color" id="role-color" value="#8b8fa3">
+        </div>
+        <div class="field">
+          <label>Icon (Bootstrap icon class)</label>
+          <input type="text" id="role-icon" value="bi-shield">
+        </div>
+        <div class="field">
+          <label>Priority</label>
+          <input type="number" id="role-priority" value="0" min="0">
+          <div id="priority-warning" style="color:var(--accent-amber); font-size:0.8rem; margin-top:4px; display:none;"></div>
+        </div>
+        <div class="switch">
+          <span>Enabled</span>
+          <input type="checkbox" id="role-enabled" checked>
+        </div>
+        <hr>
+        <h4>Permissions</h4>
+        <div id="permissions-checkboxes" class="grid grid-3" style="gap:8px; margin:12px 0;">
+          <!-- populated by JS -->
+        </div>
+        <div id="hidden-permissions-note" style="margin-top: 8px;"></div>
+        <div class="flex gap-12" style="margin-top:20px; flex-wrap: wrap;">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <%- include('../partials/scripts') %>
+
+  <style>
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: rgba(15,12,28,0.97);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 28px;
+      width: 100%;
+      max-width: 700px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+    .modal-close-btn {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 1.4rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .modal-close-btn:hover { background: var(--glass-strong); }
+    .badge {
+      background: rgba(79,209,255,0.15);
+      color: var(--accent-cyan);
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+    }
+    .grid-3 {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+    @media (max-width: 768px) {
+      .grid-3 { grid-template-columns: 1fr; }
+      .modal-content { padding: 20px; max-width: 100%; }
+    }
+  </style>
+
+  <script>
+    // ============================================================
+    // ROLES PAGE – with permission visibility filtering
+    // ============================================================
+    console.log('[roles] Script started');
+
+    try {
+      const userData = <%- JSON.stringify(user || {}) %>;
+      const csrfToken = '<%= csrfToken %>';
+
+      console.log('[roles] User data:', userData);
+
+      const userHighestPos = userData.highestRolePosition || 0;
+      const userRoles = userData.roles || [];
+      const currentUserPerms = userData.permissions || [];
+
+      const fetchFn = (typeof apiFetch !== 'undefined') ? apiFetch : function(url, opts) {
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        opts.headers['x-csrf-token'] = csrfToken;
+        return fetch(url, opts);
+      };
+
+      let allPermissions = [];
+      let roles = [];
+
+      // ---- Render roles ----
+      function renderRoles(rolesData) {
+        console.log('[roles] renderRoles called with', rolesData.length, 'roles');
+        const grid = document.getElementById('roles-grid');
+        if (!rolesData || rolesData.length === 0) {
+          grid.innerHTML = '<p class="text-muted">No roles found.</p>';
+          return;
+        }
+
+        grid.innerHTML = rolesData.map(role => {
+          const canManage = (userHighestPos > role.priority) || (role.name === 'owner' && userRoles.includes('owner'));
+          const lockIcon = !canManage ? '🔒 ' : '';
+          const disabledAttr = !canManage ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '';
+          const title = !canManage ? ' title="You cannot manage this role (equal or higher authority)."' : '';
+
+          const permsHtml = role.permissions && role.permissions.length
+            ? role.permissions.map(pid => {
+                const p = allPermissions.find(p => p.id === pid);
+                return p ? `<span class="badge">${p.name}</span>` : '';
+              }).join('')
+            : '<span class="text-muted" style="font-size:0.7rem;">No permissions</span>';
+
+          const protectedBadge = role.protected ? ' <span class="badge" style="background:rgba(255,95,174,0.2);color:var(--accent-pink);">Protected</span>' : '';
+
+          return `
+            <div class="card glass" style="border-left: 4px solid ${role.color};">
+              <div class="flex-between">
+                <div class="flex gap-8">
+                  <i class="bi ${role.icon}" style="color:${role.color}; font-size:1.4rem;"></i>
+                  <strong>${role.name}</strong>
+                  ${protectedBadge}
+                  ${!role.enabled ? '<span class="badge" style="background:#555;">disabled</span>' : ''}
+                </div>
+                <div class="flex gap-8">
+                  <button class="btn btn-ghost btn-sm edit-role" data-id="${role.id}" ${disabledAttr}${title}>
+                    ${lockIcon}Edit
+                  </button>
+                  <button class="btn btn-danger btn-sm delete-role" data-id="${role.id}" data-name="${role.name}" ${disabledAttr}${title}>
+                    ${lockIcon}Delete
+                  </button>
+                </div>
+              </div>
+              <div class="text-muted" style="font-size:0.85rem; margin:6px 0;">${role.description || ''}</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+                ${permsHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.edit-role').forEach(btn => {
+          btn.addEventListener('click', () => openModal(btn.dataset.id));
+        });
+        document.querySelectorAll('.delete-role').forEach(btn => {
+          btn.addEventListener('click', () => deleteRole(btn.dataset.id, btn.dataset.name));
+        });
+      }
+
+      // ---- Fetch roles ----
+      async function fetchRoles() {
+        console.log('[roles] fetchRoles called');
+        const grid = document.getElementById('roles-grid');
+        grid.innerHTML = '<p class="text-muted">Loading roles...</p>';
+
+        try {
+          const res = await fetchFn('/api/roles', {
+            headers: { 'x-csrf-token': csrfToken }
+          });
+          console.log('[roles] API response status:', res.status);
+
+          if (!res.ok) {
+            let errMsg = 'Failed to load roles';
+            try {
+              const errData = await res.json();
+              errMsg = errData.error || errMsg;
+            } catch (e) {}
+            throw new Error(errMsg);
+          }
+
+          const data = await res.json();
+          console.log('[roles] API response data:', data);
+
+          allPermissions = data.permissions || [];
+          roles = data.roles || [];
+
+          console.log('[roles] Permissions:', allPermissions.length);
+          console.log('[roles] Roles:', roles.length);
+
+          renderRoles(roles);
+
+        } catch (err) {
+          console.error('[roles] Error fetching roles:', err);
+          window.showToast('error', 'Failed to load roles: ' + err.message);
+          grid.innerHTML = '<p class="text-muted">Error loading roles. Please refresh.</p>';
+        }
+      }
+
+      // ---- Populate permission checkboxes (filtered) ----
+      function populatePermissionsCheckbox(perms) {
+        const container = document.getElementById('permissions-checkboxes');
+        const noteContainer = document.getElementById('hidden-permissions-note');
+        noteContainer.innerHTML = '';
+
+        // Filter: only show permissions the user has
+        const visiblePerms = perms.filter(p => currentUserPerms.includes(p.name));
+        const hiddenPerms = perms.filter(p => !currentUserPerms.includes(p.name));
+
+        if (!visiblePerms.length) {
+          container.innerHTML = '<p class="text-muted">You have no permissions to assign.</p>';
+        } else {
+          container.innerHTML = visiblePerms.map(p => `
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+              <input type="checkbox" value="${p.id}" class="perm-check"> ${p.name}
+            </label>
+          `).join('');
+        }
+
+        // Hidden note removed per user request
+      }
+
+      // ---- Get selected permissions (only visible ones) ----
+      function getSelectedPermissions() {
+        return Array.from(document.querySelectorAll('.perm-check:checked')).map(el => parseInt(el.value));
+      }
+
+      // ---- Modal ----
+      let currentRoleId = null;
+
+      function openModal(roleId = null) {
+        currentRoleId = roleId;
+        document.getElementById('role-id').value = roleId || '';
+        document.getElementById('modal-title').textContent = roleId ? 'Edit Role' : 'Create Role';
+        document.getElementById('role-name').value = '';
+        document.getElementById('role-desc').value = '';
+        document.getElementById('role-color').value = '#8b8fa3';
+        document.getElementById('role-icon').value = 'bi-shield';
+        document.getElementById('role-priority').value = 0;
+        document.getElementById('role-enabled').checked = true;
+
+        // Clear previous notes
+        document.querySelector('.modal-content .lock-msg')?.remove();
+        document.getElementById('hidden-permissions-note').innerHTML = '';
+
+        // Populate checkboxes (filtered)
+        populatePermissionsCheckbox(allPermissions);
+
+        const priorityInput = document.getElementById('role-priority');
+        const warningEl = document.getElementById('priority-warning');
+        const submitBtn = document.querySelector('#role-form button[type="submit"]');
+        const actorHighestPos = userHighestPos; // from user data
+        const isOwner = userRoles.includes('owner');
+
+        // Reset priority warning
+        warningEl.style.display = 'none';
+        warningEl.textContent = '';
+
+        // ---- Priority validation ----
+        function validatePriority(value) {
+          const num = parseInt(value);
+          if (isNaN(num)) return false;
+          if (!isOwner && num > actorHighestPos) {
+            warningEl.style.display = 'block';
+            warningEl.textContent = `⚠️ Maximum priority allowed: ${actorHighestPos}`;
+            return false;
+          } else {
+            warningEl.style.display = 'none';
+            return true;
+          }
+        }
+
+        // Listen to input changes
+        priorityInput.oninput = function() {
+          if (!isOwner) {
+            validatePriority(this.value);
+          } else {
+            warningEl.style.display = 'none';
+          }
+        };
+
+        if (roleId) {
+          const role = roles.find(r => r.id == roleId);
+          if (role) {
+            const canManage = (userHighestPos > role.priority) || (role.name === 'owner' && userRoles.includes('owner'));
+            const isProtected = role.protected;
+            const isOwnerUser = userRoles.includes('owner');
+
+            if (!canManage || (isProtected && !isOwnerUser)) {
+              document.querySelectorAll('#role-form input, #role-form select, #role-form textarea, #role-form .perm-check').forEach(el => el.disabled = true);
+              submitBtn.disabled = true;
+              submitBtn.innerHTML = '🔒 Locked';
+              const msg = isProtected ? 'This role is protected and can only be edited by owners.' : 'You cannot edit this role (equal or higher authority).';
+              document.querySelector('.modal-content').insertAdjacentHTML('beforeend', `<div class="lock-msg" style="color:var(--danger);margin-top:12px;">🔒 ${msg}</div>`);
+            } else {
+              document.querySelectorAll('#role-form input, #role-form select, #role-form textarea, #role-form .perm-check').forEach(el => el.disabled = false);
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = 'Save';
+            }
+
+            document.getElementById('role-name').value = role.name;
+            document.getElementById('role-desc').value = role.description || '';
+            document.getElementById('role-color').value = role.color || '#8b8fa3';
+            document.getElementById('role-icon').value = role.icon || 'bi-shield';
+            document.getElementById('role-priority').value = role.priority || 0;
+            document.getElementById('role-enabled').checked = role.enabled === 1;
+
+            // Validate priority on load
+            if (!isOwner) validatePriority(role.priority);
+
+            // Pre-check visible permissions
+            role.permissions.forEach(pid => {
+              const perm = allPermissions.find(p => p.id === pid);
+              if (perm && currentUserPerms.includes(perm.name)) {
+                const cb = document.querySelector(`.perm-check[value="${pid}"]`);
+                if (cb) cb.checked = true;
+              }
+            });
+          }
+        } else {
+          // New role – enable everything
+          document.querySelectorAll('#role-form input, #role-form select, #role-form textarea, #role-form .perm-check').forEach(el => el.disabled = false);
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = 'Create Role';
+          // For new role, if actorHighestPos is 0, we can still let them create but priority cannot exceed 0 (which is already the default)
+          // We'll let the validation handle it.
+        }
+
+        document.getElementById('role-modal').style.display = 'flex';
+      }
+
+      function closeModal() {
+        document.getElementById('role-modal').style.display = 'none';
+      }
+
+      document.getElementById('modal-cancel').addEventListener('click', closeModal);
+      document.querySelector('.modal-close-btn').addEventListener('click', closeModal);
+      document.getElementById('role-modal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeModal();
+      });
+
+      // ---- Save role ----
+      document.getElementById('role-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Client-side priority validation
+        const priorityInput = document.getElementById('role-priority');
+        const priority = parseInt(priorityInput.value) || 0;
+        const actorHighestPos = userHighestPos;
+        const isOwner = userRoles.includes('owner');
+        if (!isOwner && priority > actorHighestPos) {
+          window.showToast('error', `Priority cannot exceed ${actorHighestPos}`);
+          return;
+        }
+
+        const id = document.getElementById('role-id').value;
+        const name = document.getElementById('role-name').value.trim();
+        const description = document.getElementById('role-desc').value.trim();
+        const color = document.getElementById('role-color').value;
+        const icon = document.getElementById('role-icon').value.trim();
+        const enabled = document.getElementById('role-enabled').checked ? 1 : 0;
+        const permissionIds = getSelectedPermissions();
+
+        const payload = { name, description, color, icon, priority, enabled };
+        let url = '/api/roles';
+        let method = 'POST';
+        if (id) {
+          url += '/' + id;
+          method = 'PUT';
+        }
+        try {
+          const res = await fetchFn(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to save role');
+          }
+          let roleId = id;
+          if (!id) {
+            const data = await res.json();
+            roleId = data.id;
+          }
+          if (roleId) {
+            const permRes = await fetchFn(`/api/roles/${roleId}/permissions`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+              body: JSON.stringify({ permissionIds }),
+            });
+            if (!permRes.ok) {
+              const err = await permRes.json();
+              throw new Error(err.error || 'Failed to update permissions');
+            }
+          }
+          window.showToast('success', 'Role saved');
+          closeModal();
+          fetchRoles();
+        } catch (err) {
+          console.error('[roles] Save error:', err);
+          window.showToast('error', 'Error', err.message);
+        }
+      });
+
+      // ---- Delete role ----
+      async function deleteRole(id, name) {
+        if (!confirm(`Delete role "${name}"? This cannot be undone.`)) return;
+        try {
+          const res = await fetchFn(`/api/roles/${id}`, {
+            method: 'DELETE',
+            headers: { 'x-csrf-token': csrfToken }
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to delete role');
+          }
+          window.showToast('success', 'Role deleted');
+          fetchRoles();
+        } catch (err) {
+          console.error('[roles] Delete error:', err);
+          window.showToast('error', 'Error', err.message);
+        }
+      }
+
+      // ---- Create role button ----
+      document.getElementById('create-role-btn').addEventListener('click', () => openModal(null));
+
+      // ---- Start ----
+      document.addEventListener('DOMContentLoaded', fetchRoles);
+
+    } catch (err) {
+      console.error('[roles] FATAL script error:', err);
+    }
+  </script>
+</body>
+</html>

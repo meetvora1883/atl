@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Role Editor' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'owner' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content" style="max-width:900px;">
+        <div style="margin-bottom:24px;">
+          <a href="/roles" style="color:var(--text-muted); text-decoration:none;"><i class="bi bi-chevron-left"></i> Back to roles</a>
+          <h2 style="margin:8px 0 0;">Role Editor</h2>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="glass card">
+            <h3 class="section-title">Settings</h3>
+            <div class="field">
+              <label>Role Name</label>
+              <input id="role-name" type="text" disabled />
+            </div>
+            <div class="field">
+              <label>Color</label>
+              <input id="role-color" type="color" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveColor()">Save Color</button>
+          </div>
+
+          <div class="glass card">
+            <h3 class="section-title">Assigned To</h3>
+            <p id="user-count" class="mono" style="font-size:1.2rem; margin:0;">0 users</p>
+            <button class="btn btn-ghost btn-sm" style="margin-top:12px;" onclick="viewUsers()">View Users</button>
+          </div>
+        </div>
+
+        <div class="glass card mt-24">
+          <h3 class="section-title">Permissions (drag to assign)</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <h4 style="margin:0 0 12px; font-size:0.9rem; color:var(--text-muted);">Available</h4>
+              <div id="available-perms" style="display:flex; flex-direction:column; gap:8px; min-height:300px; padding:12px; background:rgba(255,255,255,0.02); border-radius:10px; border:1px dashed var(--glass-border);">
+              </div>
+            </div>
+            <div>
+              <h4 style="margin:0 0 12px; font-size:0.9rem; color:var(--accent-cyan);">Assigned</h4>
+              <div id="assigned-perms" style="display:flex; flex-direction:column; gap:8px; min-height:300px; padding:12px; background:rgba(79,209,255,0.08); border-radius:10px; border:1px dashed var(--accent-cyan);">
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:16px;" onclick="savePermissions()">Save Permissions</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .perm-badge { padding:8px 12px; background:var(--glass); border:1px solid var(--glass-border); border-radius:8px; cursor:grab; font-size:0.85rem; user-select:none; }
+    .perm-badge:active { cursor:grabbing; }
+  </style>
+
+  <script>
+    const CSRF_TOKEN = "<%= csrfToken %>";
+    const roleId = new URLSearchParams(location.search).get('id');
+    let currentPermissions = [];
+
+    async function loadRole() {
+      const res = await apiFetch(`/api/roles/${roleId}`);
+      if (!res.ok) return window.location.href = '/roles';
+      const role = await res.json();
+      document.getElementById('role-name').value = role.name;
+      document.getElementById('role-color').value = role.color;
+      document.getElementById('user-count').textContent = `${role.userCount || 0} users`;
+      currentPermissions = role.permissionIds;
+      loadPermissions();
+    }
+
+    async function loadPermissions() {
+      const res = await apiFetch(`/api/roles`);
+      if (!res.ok) return;
+      const { permissions } = await res.json();
+      const assigned = new Set(currentPermissions);
+      const available = permissions.filter(p => !assigned.has(p.id));
+
+      document.getElementById('available-perms').innerHTML = available.map(p => 
+        `<div class="perm-badge" draggable="true" data-perm-id="${p.id}" ondragstart="dragStart(event)">${p.name}</div>`
+      ).join('');
+      document.getElementById('assigned-perms').innerHTML = permissions.filter(p => assigned.has(p.id)).map(p => 
+        `<div class="perm-badge" draggable="true" data-perm-id="${p.id}" ondragstart="dragStart(event)" style="background:rgba(79,209,255,0.15); border-color:var(--accent-cyan);">${p.name}</div>`
+      ).join('');
+    }
+
+    let draggedId = null;
+    function dragStart(e) { draggedId = e.target.dataset.permId; }
+
+    document.getElementById('available-perms').addEventListener('dragover', (e) => e.preventDefault());
+    document.getElementById('available-perms').addEventListener('drop', () => {
+      currentPermissions = currentPermissions.filter(p => p !== Number(draggedId));
+      loadPermissions();
+    });
+
+    document.getElementById('assigned-perms').addEventListener('dragover', (e) => e.preventDefault());
+    document.getElementById('assigned-perms').addEventListener('drop', () => {
+      const id = Number(draggedId);
+      if (!currentPermissions.includes(id)) currentPermissions.push(id);
+      loadPermissions();
+    });
+
+    async function saveColor() {
+      await apiFetch(`/api/roles/${roleId}/color`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': CSRF_TOKEN },
+        body: JSON.stringify({ color: document.getElementById('role-color').value }),
+      });
+      window.showToast('success', 'Color saved');
+    }
+
+    async function savePermissions() {
+      await apiFetch(`/api/roles/${roleId}/permissions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': CSRF_TOKEN },
+        body: JSON.stringify({ permissionIds: currentPermissions }),
+      });
+      window.showToast('success', 'Permissions saved');
+    }
+
+    function viewUsers() { window.location.href = `/users?role=${roleId}`; }
+
+    loadRole();
+  </script>
+  <%- include('partials/scripts') %>
+</body>
+</html>

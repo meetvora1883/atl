@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'User Management' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'users' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content">
+        <div style="margin-bottom:24px;">
+          <h2 style="margin:0 0 4px;">User Management</h2>
+          <p class="text-muted" style="margin:0; font-size:0.9rem;">Search, view profiles, manage roles, ban users</p>
+        </div>
+
+        <div class="glass card mb-24">
+          <div class="users-search-row" style="display:flex; gap:10px; margin-bottom:16px;">
+            <input id="search-input" type="text" placeholder="Search username or Discord ID..." style="flex:1; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:10px; color:var(--text-primary);" />
+            <button class="btn btn-primary btn-sm" onclick="search()"><i class="bi bi-search"></i> Search</button>
+          </div>
+          <div id="users-list" style="display:flex; flex-direction:column; gap:12px;">
+            <p class="text-muted" style="margin:0;">Enter a search term to find users</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .user-card { display:flex; align-items:center; gap:14px; padding:14px; background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid var(--glass-border); }
+    .user-avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+    .user-info { flex:1; }
+    .user-badges { display:flex; gap:4px; flex-wrap:wrap; }
+
+    @media (max-width: 768px) {
+      .main-wrap { width: 100% !important; margin-left: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+      .topbar { width: 100% !important; left: 0 !important; padding-left: 12px !important; padding-right: 12px !important; box-sizing: border-box !important; margin-left: 0 !important; }
+      .container { max-width: 100% !important; padding-left: 12px !important; padding-right: 12px !important; overflow-x: hidden !important; box-sizing: border-box !important; }
+      .page-content { padding-left: 0 !important; padding-right: 0 !important; }
+      .glass.card { padding: 16px !important; overflow-x: hidden !important; }
+      .users-search-row { flex-direction: column !important; gap: 10px !important; }
+      .users-search-row input[type="text"], .users-search-row .btn { width: 100% !important; flex: none !important; box-sizing: border-box !important; }
+    }
+  </style>
+
+  <script>
+    const CSRF_TOKEN = "<%= csrfToken %>";
+
+    async function search() {
+      const q = document.getElementById('search-input').value.trim();
+      if (!q) return;
+      const res = await apiFetch(`/api/users?q=${encodeURIComponent(q)}`);
+      if (!res.ok) return;
+      const users = await res.json();
+      const html = users.map(u => `
+        <div class="user-card">
+          ${u.avatar ? `<img src="${u.avatar}" class="user-avatar" />` : `<div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--accent-blurple),var(--accent-pink)); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff;">${u.username.charAt(0).toUpperCase()}</div>`}
+          <div class="user-info">
+            <strong>${u.username}</strong>
+            <p class="text-muted mono" style="margin:2px 0 0; font-size:0.8rem;">ID: ${u.discord_id}</p>
+            ${u.banned ? `<p style="color:var(--danger); font-size:0.8rem; margin:4px 0 0;"><i class="bi bi-ban"></i> BANNED</p>` : ''}
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="viewUser(${u.id})">View</button>
+        </div>
+      `).join('');
+      document.getElementById('users-list').innerHTML = html;
+    }
+
+    function viewUser(id) { window.location.href = `/user-detail?id=${id}`; }
+
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') search();
+    });
+  </script>
+
+  <%- include('partials/scripts') %>
+</body>
+</html>

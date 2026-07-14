@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'User Detail' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'users' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content" style="max-width:1000px;">
+        <a href="/users" style="color:var(--text-muted); text-decoration:none;"><i class="bi bi-chevron-left"></i> Back to users</a>
+
+        <div class="grid grid-2 mt-24">
+          <div class="glass card">
+            <div class="profile-header">
+              <div id="user-avatar" class="avatar"></div>
+              <div>
+                <h2 id="user-name" style="margin:0;"></h2>
+                <p id="user-id" class="text-muted mono" style="margin:4px 0 0; font-size:0.85rem;"></p>
+                <p id="user-banned" style="color:var(--danger); margin:4px 0 0; font-size:0.85rem; display:none;"><i class="bi bi-ban"></i> BANNED</p>
+              </div>
+            </div>
+            <div style="margin-top:20px;">
+              <p class="text-muted" style="margin:0 0 8px; font-size:0.8rem;"><strong>Joined:</strong> <span id="user-created"></span></p>
+              <p class="text-muted" style="margin:0; font-size:0.8rem;"><strong>Last Login:</strong> <span id="user-lastlogin"></span></p>
+            </div>
+          </div>
+
+          <div class="glass card">
+            <h3 class="section-title">Actions</h3>
+            <button id="ban-btn" class="btn btn-danger" style="width:100%; margin-bottom:10px;">Ban User</button>
+            <button class="btn btn-ghost" style="width:100%;" onclick="resetPassword()">Reset Password</button>
+          </div>
+        </div>
+
+        <div class="grid grid-2 mt-24">
+          <div class="glass card">
+            <h3 class="section-title">Roles</h3>
+            <div id="user-roles" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;"></div>
+            <select id="role-select" style="width:100%; padding:8px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; color:var(--text-primary); margin-bottom:10px;"></select>
+            <button class="btn btn-primary btn-sm" id="add-role-btn">Add Role</button>
+          </div>
+
+          <div class="glass card">
+            <h3 class="section-title">Active Sessions</h3>
+            <div id="user-sessions" style="display:flex; flex-direction:column; gap:8px;">
+              <p class="text-muted" style="margin:0; font-size:0.8rem;">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass card mt-24">
+          <h3 class="section-title">Recent Activity</h3>
+          <table>
+            <thead><tr><th>Action</th><th>Target</th><th>Date</th></tr></thead>
+            <tbody id="user-logs">
+              <tr><td colspan="3" class="text-muted" style="font-size:0.85rem;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <style>
+    @media (max-width: 768px) {
+      .main-wrap { width: 100% !important; margin-left: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+      .topbar { width: 100% !important; left: 0 !important; padding-left: 12px !important; padding-right: 12px !important; box-sizing: border-box !important; margin-left: 0 !important; }
+      .container { max-width: 100% !important; padding-left: 12px !important; padding-right: 12px !important; overflow-x: hidden !important; box-sizing: border-box !important; }
+      .page-content { padding-left: 0 !important; padding-right: 0 !important; }
+      .glass.card { padding: 16px !important; overflow-x: hidden !important; }
+      .grid-2 { grid-template-columns: 1fr !important; }
+    }
+  </style>
+
+  <script>
+    // ============================================================
+    // USER DETAIL – runs after partials/scripts
+    // ============================================================
+    console.log('[user-detail] Script started');
+
+    try {
+      // Safely get user data from EJS with fallbacks
+      const userDataFromServer = <%- JSON.stringify(user || {}) %>;
+      const csrfToken = '<%= csrfToken %>';
+
+      const userId = new URLSearchParams(location.search).get('id');
+      if (!userId) {
+        console.error('[user-detail] No user ID provided in URL');
+        window.showToast('error', 'Invalid user ID');
+        window.location.href = '/users';
+        throw new Error('No user ID');
+      }
+
+      console.log('[user-detail] User ID:', userId);
+      console.log('[user-detail] Server user data:', userDataFromServer);
+
+      // Current user's highest role position and roles
+      const currentUserHighestPos = userDataFromServer.highestRolePosition || 0;
+      const currentUserRoles = userDataFromServer.roles || [];
+      console.log('[user-detail] Current user highest pos:', currentUserHighestPos);
+      console.log('[user-detail] Current user roles:', currentUserRoles);
+
+      // Fallback fetch function
+      const fetchFn = (typeof apiFetch !== 'undefined') ? apiFetch : function(url, opts) {
+        console.log('[user-detail] Using raw fetch (apiFetch not defined)');
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        opts.headers['x-csrf-token'] = csrfToken;
+        return fetch(url, opts);
+      };
+
+      // ---- Helper: format date ----
+      // Use window.formatDate if available, otherwise read from meta tag directly
+      function getDateFormat() {
+        if (typeof window.formatDate === 'function') {
+          return window.formatDate;
+        }
+        // Fallback: read from meta tag
+        const meta = document.querySelector('meta[name="hc-date-format"]');
+        const format = meta ? meta.getAttribute('content') : 'MM/DD/YYYY';
+        return function(dateStr) {
+          if (!dateStr) return 'N/A';
+          const d = new Date(dateStr);
+          if (isNaN(d)) return 'Invalid date';
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return format.replace('MM', month).replace('DD', day).replace('YYYY', year);
+        };
+      }
+
+      const formatDateFn = getDateFormat();
+      console.log('[user-detail] Using formatDate function:', formatDateFn);
+
+      function safeFormatDate(dateStr) {
+        if (!dateStr) return 'N/A';
+        try {
+          return formatDateFn(dateStr);
+        } catch (e) {
+          console.warn('[user-detail] Format error:', e);
+          return dateStr;
+        }
+      }
+
+      // ---- Main load function ----
+      async function loadUser() {
+        console.log('[user-detail] loadUser() called');
+        const container = document.getElementById('user-sessions');
+        const logsContainer = document.getElementById('user-logs');
+
+        try {
+          console.log('[user-detail] Fetching /api/users/' + userId);
+          const res = await fetchFn(`/api/users/${userId}`, {
+            headers: { 'x-csrf-token': csrfToken }
+          });
+          console.log('[user-detail] Response status:', res.status);
+
+          if (!res.ok) {
+            let errMsg = 'Failed to load user';
+            try {
+              const errData = await res.json();
+              errMsg = errData.error || errMsg;
+            } catch (e) {}
+            window.showToast('error', errMsg);
+            window.location.href = '/users';
+            return;
+          }
+
+          const user = await res.json();
+          console.log('[user-detail] Received user:', user);
+
+          // Guard against missing fields
+          user.roles = user.roles || [];
+          user.allRoles = user.allRoles || [];
+          user.sessions = user.sessions || [];
+          user.logs = user.logs || [];
+          user.highestRolePosition = user.highestRolePosition || 0;
+
+          const targetHighestPos = user.highestRolePosition;
+          const canManageTarget = currentUserHighestPos > targetHighestPos;
+
+          // ---- Avatar ----
+          const avatarEl = document.getElementById('user-avatar');
+          if (user.avatar) {
+            avatarEl.innerHTML = `<img src="${user.avatar}" style="width:64px; height:64px; border-radius:50%; object-fit:cover;" />`;
+          } else {
+            const initial = (user.username || '?').charAt(0).toUpperCase();
+            avatarEl.innerHTML = `<div style="width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--accent-blurple),var(--accent-pink)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.6rem; color:#fff;">${initial}</div>`;
+          }
+
+          // ---- User info ----
+          document.getElementById('user-name').textContent = user.username || 'Unknown';
+          document.getElementById('user-id').textContent = `Discord ID: ${user.discord_id || 'N/A'}`;
+          document.getElementById('user-created').textContent = safeFormatDate(user.created_at);
+          document.getElementById('user-lastlogin').textContent = safeFormatDate(user.last_login_at) || 'Never';
+
+          // ---- Ban status ----
+          const bannedEl = document.getElementById('user-banned');
+          const banBtn = document.getElementById('ban-btn');
+          if (user.banned) {
+            bannedEl.style.display = 'block';
+            banBtn.textContent = 'Unban User';
+            banBtn.className = 'btn btn-primary';
+          } else {
+            bannedEl.style.display = 'none';
+            banBtn.textContent = 'Ban User';
+            banBtn.className = 'btn btn-danger';
+          }
+
+          // ---- Hierarchy: ban button ----
+          if (!canManageTarget) {
+            banBtn.disabled = true;
+            banBtn.style.opacity = '0.5';
+            banBtn.style.cursor = 'not-allowed';
+            banBtn.innerHTML = '🔒 ' + (user.banned ? 'Unban User' : 'Ban User');
+            banBtn.title = 'You cannot manage this user (equal or higher authority).';
+          } else {
+            banBtn.disabled = false;
+            banBtn.style.opacity = '1';
+            banBtn.style.cursor = 'pointer';
+            banBtn.innerHTML = user.banned ? 'Unban User' : 'Ban User';
+            banBtn.title = '';
+            banBtn.onclick = toggleBan;
+          }
+
+          // ---- Roles (badges) ----
+          const rolesContainer = document.getElementById('user-roles');
+          if (user.roles.length) {
+            rolesContainer.innerHTML = user.roles.map(r => {
+              const canRemove = canManageTarget && !(r === 'owner' && !currentUserRoles.includes('owner'));
+              const disabled = !canRemove;
+              return `
+                <div style="display:flex; align-items:center; gap:6px; padding:6px 10px; background:rgba(255,255,255,0.08); border-radius:8px; font-size:0.8rem;">
+                  ${r}
+                  <button style="background:none; border:none; color:var(--text-muted); cursor:${disabled ? 'not-allowed' : 'pointer'}; font-size:1rem; padding:0; opacity:${disabled ? '0.5' : '1'};" onclick="${disabled ? '' : `removeRole('${r}')`}" ${disabled ? 'disabled' : ''}>
+                    ${disabled ? '🔒' : '×'}
+                  </button>
+                </div>
+              `;
+            }).join('');
+          } else {
+            rolesContainer.innerHTML = '<p class="text-muted" style="margin:0; font-size:0.8rem;">No roles assigned</p>';
+          }
+
+          // ---- Role dropdown ----
+          const roleSelect = document.getElementById('role-select');
+          if (user.allRoles.length) {
+            roleSelect.innerHTML = user.allRoles.map(r => {
+              let canAssign = true;
+              if (r === 'owner' && !currentUserRoles.includes('owner')) canAssign = false;
+              const alreadyHas = user.roles.includes(r);
+              const disabled = !canAssign || alreadyHas || !canManageTarget;
+              const label = r + (disabled ? ' 🔒' : '');
+              return `<option value="${r}" ${disabled ? 'disabled' : ''}>${label}</option>`;
+            }).join('');
+          } else {
+            roleSelect.innerHTML = '<option value="">No roles available</option>';
+          }
+
+          // ---- Add Role button ----
+          const addRoleBtn = document.getElementById('add-role-btn');
+          const hasSelectable = roleSelect.querySelector('option:not([disabled])');
+          if (!hasSelectable) {
+            addRoleBtn.disabled = true;
+            addRoleBtn.style.opacity = '0.5';
+            addRoleBtn.style.cursor = 'not-allowed';
+            addRoleBtn.innerHTML = '🔒 Add Role';
+          } else {
+            addRoleBtn.disabled = false;
+            addRoleBtn.style.opacity = '1';
+            addRoleBtn.style.cursor = 'pointer';
+            addRoleBtn.innerHTML = 'Add Role';
+            addRoleBtn.onclick = addRole;
+          }
+
+          // ---- Sessions ----
+          if (user.sessions.length) {
+            container.innerHTML = user.sessions.map(s => `
+              <div style="padding:8px; background:rgba(255,255,255,0.02); border-radius:8px; font-size:0.8rem;">
+                <strong>${s.browser || 'Unknown'}</strong> · ${s.os || 'Unknown OS'} · ${s.ip_address || 'Unknown IP'}
+                <button class="btn btn-danger btn-sm" style="float:right; ${!canManageTarget ? 'opacity:0.5;cursor:not-allowed;' : ''}" onclick="${canManageTarget ? `revokeSession(${s.id})` : ''}" ${!canManageTarget ? 'disabled' : ''}>
+                  ${!canManageTarget ? '🔒 ' : ''}Revoke
+                </button>
+              </div>
+            `).join('');
+          } else {
+            container.innerHTML = '<p class="text-muted" style="margin:0; font-size:0.8rem;">No active sessions</p>';
+          }
+
+          // ---- Logs ----
+          if (user.logs.length) {
+            logsContainer.innerHTML = user.logs.map(l => `
+              <tr>
+                <td>${l.action || 'Unknown'}</td>
+                <td>${l.target_type || ''}</td>
+                <td class="mono" style="font-size:0.8rem;">${safeFormatDate(l.created_at)}</td>
+              </tr>
+            `).join('');
+          } else {
+            logsContainer.innerHTML = '<tr><td colspan="3" class="text-muted">No activity</td></tr>';
+          }
+
+          // Re-apply any global i18n formatting (if available)
+          if (typeof window.__refreshI18n === 'function') {
+            window.__refreshI18n();
+          }
+
+          console.log('[user-detail] User detail loaded successfully.');
+        } catch (err) {
+          console.error('[user-detail] ERROR in loadUser:', err);
+          window.showToast('error', 'Error loading user: ' + err.message);
+          container.innerHTML = '<p class="text-muted">Error loading sessions</p>';
+          logsContainer.innerHTML = '<tr><td colspan="3" class="text-muted">Error loading logs</td></tr>';
+        }
+      }
+
+      // ---- Action functions ----
+      async function toggleBan() {
+        const isBanned = document.getElementById('user-banned').style.display === 'block';
+        const endpoint = isBanned ? '/unban' : '/ban';
+        try {
+          const res = await fetchFn(`/api/users/${userId}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+            body: JSON.stringify({ reason: 'Banned by admin' }),
+          });
+          if (res.ok) {
+            window.showToast('success', isBanned ? 'User unbanned' : 'User banned');
+            loadUser();
+          } else {
+            const err = await res.json();
+            window.showToast('error', 'Failed', err.error || 'Something went wrong');
+          }
+        } catch (err) {
+          window.showToast('error', 'Error', err.message);
+        }
+      }
+
+      async function addRole() {
+        const role = document.getElementById('role-select').value;
+        if (!role) { window.showToast('warning', 'Select a role'); return; }
+        try {
+          const res = await fetchFn(`/api/users/${userId}/roles/${role}`, {
+            method: 'POST',
+            headers: { 'x-csrf-token': csrfToken },
+          });
+          if (res.ok) { window.showToast('success', 'Role added'); loadUser(); }
+          else { const err = await res.json(); window.showToast('error', 'Failed', err.error || 'Could not add role'); }
+        } catch (err) { window.showToast('error', 'Error', err.message); }
+      }
+
+      async function removeRole(role) {
+        if (!confirm(`Remove role "${role}"?`)) return;
+        try {
+          const res = await fetchFn(`/api/users/${userId}/roles/${role}`, {
+            method: 'DELETE',
+            headers: { 'x-csrf-token': csrfToken },
+          });
+          if (res.ok) { window.showToast('success', 'Role removed'); loadUser(); }
+          else { const err = await res.json(); window.showToast('error', 'Failed', err.error || 'Could not remove role'); }
+        } catch (err) { window.showToast('error', 'Error', err.message); }
+      }
+
+      async function revokeSession(sessionId) {
+        if (!confirm('Revoke this session?')) return;
+        try {
+          const res = await fetchFn(`/api/users/${userId}/sessions/${sessionId}`, {
+            method: 'DELETE',
+            headers: { 'x-csrf-token': csrfToken },
+          });
+          if (res.ok) { window.showToast('success', 'Session revoked'); loadUser(); }
+          else { const err = await res.json(); window.showToast('error', 'Failed', err.error || 'Could not revoke session'); }
+        } catch (err) { window.showToast('error', 'Error', err.message); }
+      }
+
+      function resetPassword() {
+        window.showToast('info', 'Password reset via Discord OAuth — user needs to login again');
+      }
+
+      // ---- Expose functions to global scope for inline onclick ----
+      window.toggleBan = toggleBan;
+      window.addRole = addRole;
+      window.removeRole = removeRole;
+      window.revokeSession = revokeSession;
+      window.resetPassword = resetPassword;
+
+      // ---- Start ----
+      document.addEventListener('DOMContentLoaded', loadUser);
+
+    } catch (err) {
+      console.error('[user-detail] FATAL script error:', err);
+    }
+  </script>
+</body>
+</html>

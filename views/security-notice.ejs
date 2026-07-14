@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security Notice</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0c0a1e;
+      font-family: 'Inter', -apple-system, sans-serif;
+      padding: 24px;
+      margin: 0;
+    }
+    .container {
+      max-width: 520px;
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 20px;
+      padding: 48px 40px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #f2efff;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #9a92bd;
+      line-height: 1.7;
+      font-size: 1.05rem;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #5865f2, #9b5cff);
+      color: #fff;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      margin-top: 12px;
+    }
+    .btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 8px 28px rgba(88,101,242,0.4);
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+    .note {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.25);
+    }
+    .note a {
+      color: rgba(255,255,255,0.4);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">🛡️</div>
+    <h1>Developer Tools Detected</h1>
+    <p>
+      For security reasons, protected resources are not available while
+      browser developer tools are open.
+    </p>
+    <p>
+      Please <strong>close developer tools</strong> (F12 / Inspect Element)
+      and then click the button below to continue.
+    </p>
+    <a href="/" class="btn">Return to site</a>
+    <div class="note">
+      <a href="/security-notice">Refresh this page</a> &middot;
+      <span>If you are not using developer tools, this may be a false positive.</span>
+    </div>
+  </div>
+</body>
+</html>

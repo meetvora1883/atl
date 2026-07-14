@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: `Heroes of ${player.name}` }) %>
+  <style>
+    /* ============================================================
+       MAIN GALLERY STYLES
+    ============================================================ */
+    .heroes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .hero-card {
+      background: var(--bg-2);
+      border-radius: var(--radius);
+      border: 1px solid var(--glass-border);
+      padding: 12px;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card:hover {
+      transform: scale(1.02);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    .hero-card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      background: var(--glass-strong);
+    }
+    .hero-card .meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+    .hero-card .card-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .hero-card .card-actions button {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      color: var(--text-primary);
+      transition: background 0.15s;
+    }
+    .hero-card .card-actions button:hover {
+      background: var(--glass-strong);
+    }
+    .hero-card .card-actions .delete-btn:hover {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+    .hero-card .main-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--accent-amber);
+      color: #000;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 20px;
+      box-shadow: 0 2px 10px rgba(255, 180, 84, 0.4);
+      z-index: 2;
+    }
+    .hero-card .delete-btn {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .hero-card .delete-btn:hover { background: #c0392b; }
+
+    /* ============================================================
+       FULL-SCREEN VIEWER – with grid layout & close button outside wrapper
+    ============================================================ */
+    #fullscreenViewer {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      z-index: 99999;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      box-sizing: border-box;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      touch-action: none;
+      user-select: none;
+    }
+    #fullscreenViewer.open {
+      display: flex;
+      opacity: 1;
+    }
+    #fullscreenViewer.closing {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    /* Grid layout: image takes remaining space */
+    #fullscreenViewer .viewer-modal {
+      display: grid;
+      grid-template-rows: 1fr auto auto auto;
+      width: 100vw;
+      height: 100vh;
+      max-width: 100vw;
+      max-height: 100vh;
+      background: transparent;
+      overflow: hidden;
+      place-items: center;
+      position: relative; /* needed for absolute positioning of close button if we use absolute, but we use fixed */
+    }
+
+    /* Image wrapper fills the grid row */
+    #fullscreenViewer .viewer-img-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      min-height: 0; /* allow shrinking */
+      overflow: visible; /* ← changed from hidden to allow fixed button outside? Actually we moved button out, so this is fine */
+      background: transparent;
+      touch-action: none;
+      will-change: transform, opacity;
+    }
+
+    /* Image fills the wrapper, object-fit:contain keeps aspect */
+    #fullscreenViewer .viewer-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      will-change: transform;
+      transition: transform 0.1s ease, opacity 0.3s ease;
+      touch-action: none;
+      cursor: default;
+      display: block;
+      opacity: 1;
+      border-radius: 4px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    }
+    #fullscreenViewer .viewer-img.hidden {
+      opacity: 0;
+    }
+    #fullscreenViewer .viewer-img.dragging {
+      cursor: grabbing;
+    }
+    #fullscreenViewer .viewer-img.zoom-out-cursor {
+      cursor: zoom-out;
+    }
+    #fullscreenViewer .viewer-img.zoom-in-cursor {
+      cursor: zoom-in;
+    }
+    #fullscreenViewer .viewer-img.grab-cursor {
+      cursor: grab;
+    }
+
+    /* Loading skeleton */
+    #fullscreenViewer .viewer-loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+      color: var(--text-muted);
+      text-align: center;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+      width: 200px;
+    }
+    #fullscreenViewer .viewer-loading.active {
+      display: flex;
+    }
+    #fullscreenViewer .viewer-loading .skeleton {
+      background: linear-gradient(90deg, var(--glass) 25%, var(--glass-strong) 50%, var(--glass) 75%);
+      background-size: 200% 100%;
+      animation: skeletonWave 1.4s ease infinite;
+      border-radius: 8px;
+      height: 12px;
+      width: 100%;
+    }
+    @keyframes skeletonWave { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    #fullscreenViewer .viewer-loading .skeleton:last-child { width: 60%; }
+
+    /* ---- Navigation buttons (fixed, safe-area) ---- */
+    #fullscreenViewer .viewer-nav {
+      position: fixed !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      background: var(--glass) !important;
+      border: 1px solid var(--glass-border) !important;
+      color: var(--text-primary) !important;
+      font-size: 2.2rem !important;
+      width: 48px !important;
+      height: 48px !important;
+      border-radius: 50% !important;
+      cursor: pointer !important;
+      z-index: 99999 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: background 0.2s, transform 0.15s !important;
+      backdrop-filter: blur(8px) !important;
+      line-height: 1 !important;
+      padding: 0 !important;
+      border: none !important;
+      overflow: visible !important;
+    }
+    #fullscreenViewer .viewer-nav:hover {
+      background: var(--glass-strong) !important;
+      transform: translateY(-50%) scale(1.05) !important;
+    }
+    #fullscreenViewer .viewer-nav.prev {
+      left: max(12px, env(safe-area-inset-left, 12px)) !important;
+      right: auto !important;
+    }
+    #fullscreenViewer .viewer-nav.next {
+      right: max(12px, env(safe-area-inset-right, 12px)) !important;
+      left: auto !important;
+    }
+    #fullscreenViewer .viewer-nav:disabled {
+      opacity: 0.25 !important;
+      pointer-events: none !important;
+    }
+
+    /* ---- Close button (fixed, safe-area, outside wrapper) ---- */
+    #fullscreenViewer .viewer-close {
+      position: fixed !important;
+      top: max(16px, env(safe-area-inset-top, 16px)) !important;
+      right: max(16px, env(safe-area-inset-right, 16px)) !important;
+      background: var(--glass) !important;
+      border: 1px solid var(--glass-border) !important;
+      color: var(--text-primary) !important;
+      font-size: 2rem !important;
+      width: 48px !important;
+      height: 48px !important;
+      border-radius: 50% !important;
+      cursor: pointer !important;
+      z-index: 999999999 !important; /* highest */
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: background 0.2s, transform 0.15s !important;
+      backdrop-filter: blur(8px) !important;
+      line-height: 1 !important;
+      padding: 0 !important;
+      border: none !important;
+      overflow: visible !important;
+    }
+    #fullscreenViewer .viewer-close:hover {
+      background: rgba(255, 50, 50, 0.25) !important;
+      transform: scale(1.05) !important;
+    }
+
+    /* ---- Info panel (glass) ---- */
+    #fullscreenViewer .viewer-info {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 12px 24px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(12px);
+      padding: 10px 20px;
+      border-radius: 40px;
+      margin: 8px 16px 4px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      width: auto;
+      max-width: 95vw;
+    }
+    #fullscreenViewer .viewer-info .info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    #fullscreenViewer .viewer-info .info-item i { color: var(--accent-cyan); }
+    #fullscreenViewer .viewer-info .info-item .label { color: var(--text-muted); font-weight: 400; }
+    #fullscreenViewer .viewer-info .counter {
+      font-weight: 600;
+      background: rgba(255,255,255,0.08);
+      padding: 2px 12px;
+      border-radius: 20px;
+    }
+
+    /* ---- Thumbnail strip ---- */
+    #fullscreenViewer .viewer-thumbs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 6px 12px;
+      max-width: 95vw;
+      margin: 4px 0;
+      flex-shrink: 0;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    #fullscreenViewer .viewer-thumbs::-webkit-scrollbar { height: 4px; }
+    #fullscreenViewer .viewer-thumbs::-webkit-scrollbar-thumb { background: var(--accent-cyan); border-radius: 4px; }
+    #fullscreenViewer .viewer-thumbs .thumb {
+      flex: 0 0 56px;
+      height: 56px;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, transform 0.15s;
+      opacity: 0.5;
+    }
+    #fullscreenViewer .viewer-thumbs .thumb:hover {
+      transform: scale(1.05);
+      opacity: 0.85;
+    }
+    #fullscreenViewer .viewer-thumbs .thumb.active {
+      border-color: var(--accent-cyan);
+      opacity: 1;
+    }
+    #fullscreenViewer .viewer-thumbs .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ---- Controls (glass) ---- */
+    #fullscreenViewer .viewer-controls {
+      display: flex !important;
+      gap: 6px !important;
+      align-items: center !important;
+      background: var(--glass) !important;
+      border: 1px solid var(--glass-border) !important;
+      backdrop-filter: blur(12px) !important;
+      padding: 6px 12px !important;
+      border-radius: 40px !important;
+      margin: 4px 0 12px;
+      flex-shrink: 0;
+    }
+    #fullscreenViewer .viewer-controls button {
+      background: transparent !important;
+      border: none !important;
+      color: var(--text-primary) !important;
+      font-size: 1.1rem !important;
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 50% !important;
+      cursor: pointer !important;
+      transition: background 0.2s !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      position: relative !important;
+      overflow: visible !important;
+    }
+    #fullscreenViewer .viewer-controls button:hover {
+      background: var(--glass-strong) !important;
+    }
+    #fullscreenViewer .viewer-controls .divider {
+      width: 1px;
+      height: 22px;
+      background: var(--glass-border);
+    }
+    #fullscreenViewer .viewer-controls .zoom-level {
+      color: var(--text-primary);
+      font-size: 0.7rem;
+      min-width: 36px;
+      text-align: center;
+      font-family: var(--font-mono);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 600px) {
+      .heroes-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      #fullscreenViewer .viewer-close {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 1.6rem !important;
+      }
+      #fullscreenViewer .viewer-nav {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 1.6rem !important;
+      }
+      #fullscreenViewer .viewer-nav.prev { left: max(8px, env(safe-area-inset-left, 8px)) !important; }
+      #fullscreenViewer .viewer-nav.next { right: max(8px, env(safe-area-inset-right, 8px)) !important; }
+      #fullscreenViewer .viewer-info {
+        font-size: 0.7rem;
+        padding: 6px 12px;
+        gap: 6px 12px;
+        border-radius: 24px;
+        margin: 4px 8px;
+      }
+      #fullscreenViewer .viewer-thumbs .thumb { flex: 0 0 44px; height: 44px; }
+      #fullscreenViewer .viewer-controls button { width: 28px !important; height: 28px !important; font-size: 0.9rem !important; }
+      #fullscreenViewer .viewer-controls { padding: 4px 10px !important; gap: 4px !important; }
+    }
+
+    /* ---- Confirmation modal (unchanged) ---- */
+    #customConfirmModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #customConfirmModal.open { display: flex; }
+    #customConfirmModal .modal-box {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+    #customConfirmModal .modal-header {
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--glass-border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #customConfirmModal .modal-header h3 { margin: 0; color: var(--text-primary); font-size: 1.1rem; }
+    #customConfirmModal .modal-header .close-btn {
+      background: transparent; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;
+    }
+    #customConfirmModal .modal-header .close-btn:hover { color: var(--danger); }
+    #customConfirmModal .modal-body { padding: 20px 24px 24px; }
+    #customConfirmModal .modal-body p { margin: 0 0 16px 0; font-size: 0.95rem; color: var(--text-primary); }
+    #customConfirmModal .modal-body .btn-row { display: flex; justify-content: flex-end; gap: 12px; }
+    #customConfirmModal .modal-body .btn-row .btn {
+      padding: 8px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; border: none;
+      font-family: var(--font-body);
+    }
+    #customConfirmModal .modal-body .btn-row .btn-ghost {
+      background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-primary);
+    }
+    #customConfirmModal .modal-body .btn-row .btn-ghost:hover { background: var(--glass-strong); }
+    #customConfirmModal .modal-body .btn-row .btn-danger { background: var(--danger); color: #fff; }
+    #customConfirmModal .modal-body .btn-row .btn-danger:hover { background: #c0392b; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'warboard' }) %>
+    <div class="main-wrap">
+      <%- include('../partials/topbar') %>
+      <main class="page-content">
+        <div class="container">
+          <div class="flex-between" style="margin-bottom:8px;">
+            <h1 style="margin:0;">Hero Images – <%= player.name %></h1>
+            <span class="text-muted"><%= images.length %> image<%= images.length !== 1 ? 's' : '' %></span>
+          </div>
+          <p class="text-muted"><a href="/warboard">← Back to Warboard</a></p>
+
+          <!-- Multi‑select toolbar -->
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:12px 0;">
+            <button id="selectAllBtn" class="btn btn-sm btn-ghost">Select All</button>
+            <button id="deselectAllBtn" class="btn btn-sm btn-ghost">Deselect All</button>
+            <button id="deleteSelectedBtn" class="btn btn-sm btn-danger" disabled>Delete Selected</button>
+            <span id="selectedCount" class="text-muted" style="font-size:0.85rem;">0 selected</span>
+          </div>
+
+          <div class="heroes-grid" id="heroesGrid">
+            <% images.forEach((img, index) => { %>
+              <div class="hero-card" data-id="<%= img.id %>" data-index="<%= index %>">
+                <img src="<%= img.image_path %>" alt="Hero image" loading="lazy" />
+                <div class="main-badge" style="display:<%= img.is_main ? 'block' : 'none' %>;">⭐ Main</div>
+                <div class="meta">
+                  Uploaded: <%= new Date(img.created_at).toLocaleDateString() %><br>
+                  <%= new Date(img.created_at).toLocaleTimeString() %>
+                </div>
+                <div class="card-actions">
+                  <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;">
+                    <input type="checkbox" class="select-checkbox" data-id="<%= img.id %>" />
+                    Select
+                  </label>
+                  <button class="set-main-btn" data-id="<%= img.id %>">⭐ Main</button>
+                  <button class="delete-btn" data-id="<%= img.id %>">Delete</button>
+                </div>
+              </div>
+            <% }) %>
+            <% if (images.length === 0) { %>
+              <p class="text-muted" style="grid-column: 1/-1; text-align:center; padding:40px 0;">
+                No hero images uploaded for this player.
+              </p>
+            <% } %>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       FULL-SCREEN VIEWER – with close button outside image wrapper
+  ============================================================ -->
+  <div id="fullscreenViewer">
+    <div class="viewer-modal">
+      <!-- Image row (wrapper) -->
+      <div class="viewer-img-wrap" id="viewerImgWrap">
+        <div class="viewer-loading" id="viewerLoading">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+          <span style="font-size:0.9rem;">Loading Hero…</span>
+        </div>
+        <img class="viewer-img" id="viewerImg" src="" alt="" draggable="false" />
+        <!-- Navigation buttons (fixed) -->
+        <button class="viewer-nav prev" id="fsPrev" disabled>‹</button>
+        <button class="viewer-nav next" id="fsNext" disabled>›</button>
+        <!-- CLOSE BUTTON IS NOW OUTSIDE THE WRAPPER – placed below, but we put it here as a direct child of .viewer-modal (outside .viewer-img-wrap) -->
+      </div>
+      <!-- Close button – placed outside .viewer-img-wrap but inside .viewer-modal so it can be fixed -->
+      <button class="viewer-close" id="fsClose">&times;</button>
+
+      <!-- Info panel -->
+      <div class="viewer-info" id="viewerInfo">
+        <span class="info-item"><i class="bi bi-person"></i> <span id="infoPlayerName"><%= player.name %></span></span>
+        <span class="info-item"><i class="bi bi-shield"></i> <span id="infoMight">—</span></span>
+        <span class="info-item"><i class="bi bi-building"></i> <span id="infoBuilding">—</span></span>
+        <span class="info-item"><i class="bi bi-calendar"></i> <span id="infoDate">—</span></span>
+        <span class="info-item counter" id="fsCounter">Image 1 / 1</span>
+      </div>
+
+      <!-- Thumbnails -->
+      <div class="viewer-thumbs" id="viewerThumbs"></div>
+
+      <!-- Controls -->
+      <div class="viewer-controls">
+        <button id="zoomInBtn" title="Zoom In">+</button>
+        <button id="zoomOutBtn" title="Zoom Out">−</button>
+        <button id="zoomResetBtn" title="Reset Zoom">⟲</button>
+        <span class="zoom-level" id="zoomLevel">100%</span>
+        <span class="divider"></span>
+        <button id="fullscreenBtn" title="Fullscreen">⤢</button>
+        <button id="downloadBtn" title="Download">⬇</button>
+        <button id="deleteViewerBtn" title="Delete this image">🗑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation modal -->
+  <div id="customConfirmModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="customConfirmTitle">Confirm</h3>
+        <button class="close-btn" id="customConfirmClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="customConfirmMessage">Are you sure?</p>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="customConfirmCancel">Cancel</button>
+          <button class="btn btn-danger" id="customConfirmOk">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('../partials/scripts') %>
+
+  <script>
+    // ============================================================
+    // CONFIG & STATE (unchanged)
+    // ============================================================
+    const csrfToken = window.__CSRF_TOKEN__ || '';
+    const playerData = <%- JSON.stringify(player) %>;
+    let images = <%- JSON.stringify(images) %>;
+    let currentIndex = 0;
+    let viewerImages = images.map(img => img.image_path);
+    let mainImageId = images.find(img => img.is_main)?.id || null;
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    const showToast = window.showToast || function(type, msg) { alert(msg); };
+
+    // ============================================================
+    // CUSTOM CONFIRM MODAL
+    // ============================================================
+    const customConfirm = {
+      el: document.getElementById('customConfirmModal'),
+      title: document.getElementById('customConfirmTitle'),
+      message: document.getElementById('customConfirmMessage'),
+      okBtn: document.getElementById('customConfirmOk'),
+      cancelBtn: document.getElementById('customConfirmCancel'),
+      closeBtn: document.getElementById('customConfirmClose'),
+      callback: null,
+
+      init() {
+        this.cancelBtn.addEventListener('click', () => this.close());
+        this.closeBtn.addEventListener('click', () => this.close());
+        this.el.addEventListener('click', (e) => {
+          if (e.target === this.el) this.close();
+        });
+        this.okBtn.addEventListener('click', () => {
+          if (typeof this.callback === 'function') this.callback();
+          this.close();
+        });
+        this.el.classList.remove('open');
+      },
+
+      open(options) {
+        this.title.textContent = options.title || 'Confirm';
+        this.message.textContent = options.message || 'Are you sure?';
+        this.okBtn.textContent = options.confirmText || 'Confirm';
+        this.okBtn.className = options.confirmClass || 'btn btn-danger';
+        this.callback = options.onConfirm || null;
+        this.el.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      },
+
+      close() {
+        this.el.classList.remove('open');
+        document.body.style.overflow = '';
+        this.callback = null;
+      }
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => customConfirm.init());
+    } else {
+      customConfirm.init();
+    }
+
+    // ============================================================
+    // API CALLS
+    // ============================================================
+
+    async function setMainImage(id) {
+      try {
+        const res = await fetch('/api/warboard/heroes/main', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          credentials: 'include',
+          body: JSON.stringify({ imageId: id })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        document.querySelectorAll('.main-badge').forEach(el => el.style.display = 'none');
+        const card = document.querySelector(`.hero-card[data-id="${id}"]`);
+        if (card) {
+          const badge = card.querySelector('.main-badge');
+          if (badge) badge.style.display = 'block';
+        }
+        mainImageId = id;
+        images.forEach(img => img.is_main = (img.id == id));
+        showToast('success', 'Main hero updated.');
+      } catch (e) {
+        showToast('error', 'Failed to set main hero: ' + e.message);
+      }
+    }
+
+    function deleteImage(id, cardElement) {
+      customConfirm.open({
+        title: 'Delete Hero Image',
+        message: 'Are you sure you want to delete this hero image?',
+        confirmText: 'Delete',
+        confirmClass: 'btn btn-danger',
+        onConfirm: async () => {
+          try {
+            const res = await fetch(`/api/warboard/heroes/${id}`, {
+              method: 'DELETE',
+              headers: { 'x-csrf-token': csrfToken },
+              credentials: 'include'
+            });
+            if (res.ok) {
+              removeImageFromUI(id, cardElement);
+              showToast('success', 'Image deleted.');
+            } else {
+              const err = await res.json();
+              showToast('error', err.error || 'Delete failed');
+            }
+          } catch (e) {
+            showToast('error', 'Network error');
+          }
+        }
+      });
+    }
+
+    function deleteSelectedImages(ids) {
+      customConfirm.open({
+        title: `Delete ${ids.length} Images`,
+        message: `Are you sure you want to delete ${ids.length} hero image(s)? This cannot be undone.`,
+        confirmText: 'Delete All',
+        confirmClass: 'btn btn-danger',
+        onConfirm: async () => {
+          try {
+            const res = await fetch('/api/warboard/heroes/delete-many', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+              credentials: 'include',
+              body: JSON.stringify({ ids })
+            });
+            if (res.ok) {
+              ids.forEach(id => {
+                const card = document.querySelector(`.hero-card[data-id="${id}"]`);
+                if (card) card.remove();
+              });
+              images = images.filter(img => !ids.includes(img.id));
+              viewerImages = images.map(img => img.image_path);
+              selectedIds.clear();
+              updateSelectedCount();
+              updateUIAfterDelete();
+              showToast('success', 'Selected images deleted.');
+            } else {
+              const err = await res.json();
+              showToast('error', err.error || 'Delete failed');
+            }
+          } catch (e) {
+            showToast('error', 'Network error');
+          }
+        }
+      });
+    }
+
+    function removeImageFromUI(id, cardElement) {
+      if (cardElement) cardElement.remove();
+      images = images.filter(img => img.id != id);
+      viewerImages = images.map(img => img.image_path);
+      updateUIAfterDelete();
+    }
+
+    function updateUIAfterDelete() {
+      const viewer = document.getElementById('fullscreenViewer');
+      if (viewer.classList.contains('open')) {
+        if (images.length === 0) {
+          closeViewer();
+        } else {
+          currentIndex = Math.max(0, Math.min(currentIndex, images.length - 1));
+          loadViewerImage(currentIndex);
+          buildThumbnails();
+        }
+      }
+      updateSelectedCount();
+      const countEl = document.querySelector('.flex-between .text-muted');
+      if (countEl) countEl.textContent = images.length + ' image' + (images.length !== 1 ? 's' : '');
+      if (images.length === 0) {
+        const grid = document.getElementById('heroesGrid');
+        grid.innerHTML = '<p class="text-muted" style="grid-column:1/-1;text-align:center;padding:40px 0;">No hero images uploaded for this player.</p>';
+      }
+    }
+
+    // ============================================================
+    // MULTI-SELECT
+    // ============================================================
+    let selectedIds = new Set();
+
+    function updateSelectedCount() {
+      const count = selectedIds.size;
+      document.getElementById('selectedCount').textContent = `${count} selected`;
+      document.getElementById('deleteSelectedBtn').disabled = count === 0;
+    }
+
+    document.querySelectorAll('.select-checkbox').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const id = parseInt(this.dataset.id);
+        if (this.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateSelectedCount();
+      });
+    });
+
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('.select-checkbox').forEach(cb => {
+        cb.checked = true;
+        selectedIds.add(parseInt(cb.dataset.id));
+      });
+      updateSelectedCount();
+    });
+
+    document.getElementById('deselectAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('.select-checkbox').forEach(cb => {
+        cb.checked = false;
+        selectedIds.delete(parseInt(cb.dataset.id));
+      });
+      updateSelectedCount();
+    });
+
+    document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
+      if (selectedIds.size === 0) return;
+      deleteSelectedImages(Array.from(selectedIds));
+    });
+
+    // ============================================================
+    // EVENT LISTENERS FOR CARDS
+    // ============================================================
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const id = parseInt(this.dataset.id);
+        const card = this.closest('.hero-card');
+        deleteImage(id, card);
+      });
+    });
+
+    document.querySelectorAll('.set-main-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const id = parseInt(this.dataset.id);
+        setMainImage(id);
+      });
+    });
+
+    document.querySelectorAll('.hero-card img').forEach((img, idx) => {
+      img.addEventListener('click', () => {
+        currentIndex = idx;
+        openViewer(idx);
+      });
+    });
+
+    // ============================================================
+    // FULL-SCREEN VIEWER – JavaScript (unchanged, but button is now outside wrapper)
+    // ============================================================
+    const viewer = document.getElementById('fullscreenViewer');
+    const viewerImg = document.getElementById('viewerImg');
+    const viewerImgWrap = document.getElementById('viewerImgWrap');
+    const viewerLoading = document.getElementById('viewerLoading');
+    const viewerCounter = document.getElementById('fsCounter');
+    const viewerInfoDate = document.getElementById('infoDate');
+    const viewerInfoMight = document.getElementById('infoMight');
+    const viewerInfoBuilding = document.getElementById('infoBuilding');
+    const thumbsContainer = document.getElementById('viewerThumbs');
+    const zoomLevelEl = document.getElementById('zoomLevel');
+
+    let viewerZoom = 1;
+    let viewerPanX = 0, viewerPanY = 0;
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0;
+    let lastPanX = 0, lastPanY = 0;
+    let touchStartDist = 0;
+    let startZoom = 1;
+    const ZOOM_LEVELS = [1, 2, 4];
+
+    // ---- Preload and show ----
+    function preloadAndShow(index) {
+      if (index < 0 || index >= images.length) return;
+      const imgData = images[index];
+      viewerLoading.classList.add('active');
+      const preloader = new Image();
+      preloader.onload = function() {
+        viewerImg.src = preloader.src;
+        viewerLoading.classList.remove('active');
+        resetViewerTransform();
+        viewerCounter.textContent = `Image ${index+1} / ${images.length}`;
+        updateInfoPanel(index);
+        document.querySelectorAll('.viewer-thumbs .thumb').forEach((el, i) => {
+          el.classList.toggle('active', i === index);
+        });
+        const thumbEl = document.querySelector('.viewer-thumbs .thumb.active');
+        if (thumbEl) thumbEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        updateNavButtons();
+        for (let i = -2; i <= 2; i++) {
+          if (i !== 0) preloadImage(index + i);
+        }
+        updateCursor();
+      };
+      preloader.onerror = function() {
+        viewerLoading.classList.remove('active');
+        showToast('warning', 'Failed to load image.');
+      };
+      preloader.src = imgData.image_path;
+    }
+
+    function preloadImage(index) {
+      if (index < 0 || index >= images.length) return;
+      const img = new Image();
+      img.src = images[index].image_path;
+    }
+
+    function openViewer(index) {
+      if (images.length === 0) return;
+      currentIndex = Math.min(index, images.length - 1);
+      viewer.classList.remove('closing');
+      viewer.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      preloadAndShow(currentIndex);
+      buildThumbnails();
+      updateInfoPanel(currentIndex);
+      updateNavButtons();
+      resetViewerTransform();
+    }
+
+    function closeViewer() {
+      viewer.classList.add('closing');
+      setTimeout(() => {
+        viewer.classList.remove('open', 'closing');
+        document.body.style.overflow = '';
+        viewerLoading.classList.remove('active');
+      }, 300);
+    }
+
+    function loadViewerImage(index) {
+      currentIndex = index;
+      preloadAndShow(index);
+    }
+
+    function updateInfoPanel(index) {
+      const imgData = images[index];
+      if (!imgData) return;
+      document.getElementById('infoPlayerName').textContent = playerData.name || 'Unknown';
+      viewerInfoMight.textContent = playerData.might || '—';
+      viewerInfoBuilding.textContent = playerData.building || '—';
+      const d = new Date(imgData.created_at);
+      viewerInfoDate.textContent = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+    }
+
+    function updateNavButtons() {
+      document.getElementById('fsPrev').disabled = images.length <= 1 || currentIndex === 0;
+      document.getElementById('fsNext').disabled = images.length <= 1 || currentIndex === images.length - 1;
+    }
+
+    function buildThumbnails() {
+      thumbsContainer.innerHTML = '';
+      images.forEach((img, idx) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'thumb' + (idx === currentIndex ? ' active' : '');
+        const thumbImg = document.createElement('img');
+        thumbImg.src = img.image_path;
+        thumbImg.loading = 'lazy';
+        thumb.appendChild(thumbImg);
+        thumb.addEventListener('click', () => {
+          currentIndex = idx;
+          loadViewerImage(idx);
+        });
+        thumbsContainer.appendChild(thumb);
+      });
+    }
+
+    // ---- Navigation ----
+    function goPrev() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        loadViewerImage(currentIndex);
+      }
+    }
+    function goNext() {
+      if (currentIndex < images.length - 1) {
+        currentIndex++;
+        loadViewerImage(currentIndex);
+      }
+    }
+
+    // ---- Zoom & Pan (fixed) ----
+    function clampPan() {
+      if (!viewerImg.complete || viewerImg.naturalWidth === 0) return;
+      const naturalWidth = viewerImg.offsetWidth;
+      const naturalHeight = viewerImg.offsetHeight;
+      const sw = naturalWidth * viewerZoom;
+      const sh = naturalHeight * viewerZoom;
+      const wrapRect = viewerImgWrap.getBoundingClientRect();
+      const cw = wrapRect.width;
+      const ch = wrapRect.height;
+      if (sw > cw) {
+        const maxX = (sw - cw) / 2;
+        viewerPanX = Math.max(-maxX, Math.min(maxX, viewerPanX));
+      } else {
+        viewerPanX = 0;
+      }
+      if (sh > ch) {
+        const maxY = (sh - ch) / 2;
+        viewerPanY = Math.max(-maxY, Math.min(maxY, viewerPanY));
+      } else {
+        viewerPanY = 0;
+      }
+    }
+
+    function updateViewerTransform() {
+      viewerImg.style.transform = `translate(${viewerPanX}px, ${viewerPanY}px) scale(${viewerZoom})`;
+      zoomLevelEl.textContent = Math.round(viewerZoom * 100) + '%';
+      updateCursor();
+    }
+
+    function updateCursor() {
+      viewerImg.classList.remove('zoom-in-cursor', 'zoom-out-cursor', 'grab-cursor', 'dragging');
+      if (isDragging) {
+        viewerImg.classList.add('dragging');
+      } else if (viewerZoom > 1.05) {
+        viewerImg.classList.add('zoom-out-cursor');
+      } else if (viewerZoom < 0.95) {
+        viewerImg.classList.add('zoom-in-cursor');
+      } else {
+        viewerImg.classList.add('grab-cursor');
+      }
+    }
+
+    function resetViewerTransform() {
+      viewerZoom = 1;
+      viewerPanX = 0;
+      viewerPanY = 0;
+      clampPan();
+      updateViewerTransform();
+    }
+
+    // ---- Zoom controls ----
+    function zoomIn() {
+      viewerZoom = Math.min(viewerZoom * 1.3, 10);
+      clampPan();
+      updateViewerTransform();
+    }
+    function zoomOut() {
+      viewerZoom = Math.max(viewerZoom / 1.3, 0.5);
+      clampPan();
+      updateViewerTransform();
+    }
+    function resetZoom() { resetViewerTransform(); }
+
+    // ---- Double‑tap cycles zoom ----
+    function onDoubleTap() {
+      let nextZoom = 1;
+      for (const level of ZOOM_LEVELS) {
+        if (viewerZoom < level - 0.01) {
+          nextZoom = level;
+          break;
+        }
+      }
+      viewerZoom = Math.min(nextZoom, 10);
+      clampPan();
+      updateViewerTransform();
+    }
+
+    // ---- Drag (pan) ----
+    function startPan(e) {
+      if (viewerZoom <= 1.01) return;
+      isDragging = true;
+      const pos = getEventPos(e);
+      dragStartX = pos.x; dragStartY = pos.y;
+      lastPanX = viewerPanX; lastPanY = viewerPanY;
+      e.preventDefault();
+    }
+    function movePan(e) {
+      if (!isDragging) return;
+      const pos = getEventPos(e);
+      const dx = pos.x - dragStartX;
+      const dy = pos.y - dragStartY;
+      viewerPanX = lastPanX + dx;
+      viewerPanY = lastPanY + dy;
+      clampPan();
+      updateViewerTransform();
+      e.preventDefault();
+    }
+    function endPan() {
+      isDragging = false;
+      updateCursor();
+    }
+    function getEventPos(e) {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    // ---- Wheel zoom ----
+    function onWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      viewerZoom = Math.min(Math.max(viewerZoom + delta, 0.5), 10);
+      clampPan();
+      updateViewerTransform();
+    }
+
+    // ---- Pinch zoom ----
+    function onTouchStart(e) {
+      if (e.touches.length === 2) {
+        const t = e.touches;
+        touchStartDist = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+        startZoom = viewerZoom;
+      }
+    }
+    function onTouchMove(e) {
+      if (e.touches.length === 2) {
+        const t = e.touches;
+        const dist = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+        if (touchStartDist > 0 && dist > 0) {
+          const scale = dist / touchStartDist;
+          viewerZoom = Math.min(Math.max(startZoom * scale, 0.5), 10);
+          clampPan();
+          updateViewerTransform();
+          e.preventDefault();
+        }
+      }
+    }
+
+    // ---- Swipe ----
+    let touchStartX = 0, touchStartY = 0;
+    function onTouchStartSwipe(e) {
+      if (e.touches.length === 1 && viewerZoom <= 1.01) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }
+    function onTouchEndSwipe(e) {
+      if (e.changedTouches.length === 1 && viewerZoom <= 1.01) {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+          if (dx > 0) goPrev();
+          else goNext();
+        }
+      }
+    }
+
+    // ---- Fullscreen ----
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    // ---- Download ----
+    function downloadCurrent() {
+      const imgData = images[currentIndex];
+      if (!imgData) return;
+      const link = document.createElement('a');
+      link.href = '/api/warboard/heroes/download/' + imgData.id;
+      link.download = '';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // ---- Delete current ----
+    function deleteCurrent() {
+      const imgData = images[currentIndex];
+      if (!imgData) return;
+      const card = document.querySelector(`.hero-card[data-id="${imgData.id}"]`);
+      deleteImage(imgData.id, card);
+    }
+
+    // ---- Keyboard shortcuts ----
+    document.addEventListener('keydown', (e) => {
+      if (!viewer.classList.contains('open')) return;
+      switch (e.key) {
+        case 'Escape': closeViewer(); e.preventDefault(); break;
+        case 'ArrowLeft': case 'a': case 'A': goPrev(); e.preventDefault(); break;
+        case 'ArrowRight': case 'd': case 'D': goNext(); e.preventDefault(); break;
+        case '+': zoomIn(); e.preventDefault(); break;
+        case '-': zoomOut(); e.preventDefault(); break;
+        case '0': resetZoom(); e.preventDefault(); break;
+        case 'f': case 'F': toggleFullscreen(); e.preventDefault(); break;
+        case 'Delete': case 'Backspace': deleteCurrent(); e.preventDefault(); break;
+      }
+    });
+
+    // ---- Event listeners ----
+    document.getElementById('fsClose').addEventListener('click', closeViewer);
+    document.getElementById('fsPrev').addEventListener('click', goPrev);
+    document.getElementById('fsNext').addEventListener('click', goNext);
+    document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
+    document.getElementById('zoomOutBtn').addEventListener('click', zoomOut);
+    document.getElementById('zoomResetBtn').addEventListener('click', resetZoom);
+    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    document.getElementById('downloadBtn').addEventListener('click', downloadCurrent);
+    document.getElementById('deleteViewerBtn').addEventListener('click', deleteCurrent);
+
+    viewerImg.addEventListener('mousedown', startPan);
+    document.addEventListener('mousemove', movePan);
+    document.addEventListener('mouseup', endPan);
+    viewerImg.addEventListener('wheel', onWheel, { passive: false });
+    viewerImg.addEventListener('dblclick', onDoubleTap);
+
+    // Touch events
+    viewerImg.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        if (viewerZoom <= 1.01) {
+          onTouchStartSwipe(e);
+        } else {
+          startPan(e);
+        }
+      }
+      onTouchStart(e);
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && viewerZoom > 1.01) {
+        movePan(e);
+      }
+      onTouchMove(e);
+    }, { passive: false });
+    document.addEventListener('touchend', (e) => {
+      if (viewerZoom <= 1.01) {
+        onTouchEndSwipe(e);
+      }
+      if (isDragging) endPan();
+    });
+
+    viewer.addEventListener('click', (e) => {
+      if (e.target === viewer) closeViewer();
+    });
+
+    // Resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      if (viewer.classList.contains('open')) clampPan();
+    });
+    resizeObserver.observe(viewerImgWrap);
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    if (images.length > 0) {
+      buildThumbnails();
+      images.forEach(img => {
+        const card = document.querySelector(`.hero-card[data-id="${img.id}"]`);
+        if (card) {
+          const badge = card.querySelector('.main-badge');
+          if (badge) badge.style.display = img.is_main ? 'block' : 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

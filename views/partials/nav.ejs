@@ -1,0 +1,18 @@
+<nav class="nav">
+  <a href="/dashboard" class="brand" style="text-decoration:none;">
+    <span class="dot"></span> HyperCity
+  </a>
+  <div class="nav-links">
+    <a href="/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+    <a href="/profile" class="<%= active === 'profile' ? 'active' : '' %>">Profile</a>
+    <a href="/settings" class="<%= active === 'settings' ? 'active' : '' %>">Settings</a>
+    <a href="/sessions" class="<%= active === 'sessions' ? 'active' : '' %>">Sessions</a>
+    <% if (user && user.roles && user.roles.includes('owner')) { %>
+      <a href="/owner" class="<%= active === 'owner' ? 'active' : '' %>">Owner Panel</a>
+    <% } %>
+    <form action="/auth/logout" method="POST" style="display:inline;">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <button type="submit" class="btn btn-ghost btn-sm">Log out</button>
+    </form>
+  </div>
+</nav>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Analytics' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'analytics' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <main class="page-content">
+        <div class="container">
+          <h1 style="text-transform: capitalize; margin-bottom: 24px;">analytics Page</h1>
+          <div class="glass card" style="padding: 40px; text-align: center;">
+            <p class="text-muted">This page is under development.</p>
+            <div id="page-skeleton" style="margin-top: 20px;">
+              <div class="skeleton" style="height: 60px; margin-bottom: 12px;"></div>
+              <div class="skeleton" style="height: 60px; margin-bottom: 12px;"></div>
+              <div class="skeleton" style="height: 60px;"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <%- include('partials/scripts') %>
+</body>
+</html>

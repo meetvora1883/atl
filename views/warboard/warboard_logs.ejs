@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Warboard Logs' }) %>
+  <style>
+    /* ============================================================
+       WARBOARD LOGS – PAGE STYLES
+    ============================================================ */
+    .warboard-logs-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ---- Toolbar ---- */
+    .logs-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 16px 20px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+    }
+    .logs-toolbar .search-wrap {
+      flex: 1;
+      min-width: 180px;
+      position: relative;
+    }
+    .logs-toolbar .search-wrap i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+    .logs-toolbar .search-wrap input {
+      width: 100%;
+      padding: 8px 12px 8px 36px;
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      background: var(--bg-2);
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .logs-toolbar .search-wrap input:focus {
+      border-color: var(--accent-cyan);
+      outline: none;
+    }
+    .logs-toolbar .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .logs-toolbar .filter-group select,
+    .logs-toolbar .filter-group input[type="date"] {
+      padding: 6px 10px;
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      background: var(--bg-2);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      max-width: 150px;
+      transition: border-color 0.2s;
+    }
+    .logs-toolbar .filter-group select:focus,
+    .logs-toolbar .filter-group input[type="date"]:focus {
+      border-color: var(--accent-cyan);
+      outline: none;
+    }
+    .logs-toolbar .action-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .logs-toolbar .action-buttons .btn {
+      padding: 6px 14px;
+      font-size: 0.85rem;
+    }
+
+    /* ---- Stats row ---- */
+    .logs-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 12px 20px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+    }
+    .logs-stats .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .logs-stats .stat-item strong {
+      color: var(--text-primary);
+      font-size: 1.1rem;
+    }
+    .logs-stats .stat-item .badge {
+      background: var(--accent-blurple);
+      color: #fff;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* ---- Online Officers panel ---- */
+    .online-officers-panel {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
+    .online-officers-panel .label {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .online-officers-panel .label .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2ecc71;
+      display: inline-block;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+    .online-officers-panel .officers-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+    }
+    .online-officers-panel .officer-tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.85rem;
+      padding: 2px 10px 2px 6px;
+      background: var(--bg-2);
+      border-radius: 20px;
+      border: 1px solid var(--glass-border);
+    }
+    .online-officers-panel .officer-tag .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .online-officers-panel .officer-tag .status-dot.active { background: #2ecc71; }
+    .online-officers-panel .officer-tag .status-dot.idle { background: #f39c12; }
+    .online-officers-panel .officer-tag .status-dot.away { background: #95a5a6; }
+    .online-officers-panel .editing-indicator {
+      font-size: 0.8rem;
+      color: var(--accent-amber);
+      font-style: italic;
+      margin-left: auto;
+    }
+
+    /* ---- Log entries ---- */
+    .logs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 4px 0;
+    }
+    .log-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      transition: background 0.15s, transform 0.1s;
+      cursor: default;
+      animation: fadeInUp 0.25s ease forwards;
+    }
+    .log-entry:hover {
+      background: var(--glass-strong);
+    }
+    .log-entry .log-time {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      min-width: 80px;
+      font-variant-numeric: tabular-nums;
+      padding-top: 1px;
+    }
+    .log-entry .log-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--glass-strong);
+      border: 1px solid var(--glass-border);
+    }
+    .log-entry .log-avatar.fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.7rem;
+      color: #fff;
+      background: var(--accent-blurple);
+    }
+    .log-entry .log-body {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      color: var(--text-primary);
+    }
+    .log-entry .log-body .actor {
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+    .log-entry .log-body .action-text {
+      color: var(--text-muted);
+    }
+    .log-entry .log-body .highlight {
+      color: var(--accent-amber);
+      font-weight: 500;
+    }
+    .log-entry .log-body .building-tag {
+      display: inline-block;
+      padding: 0 8px;
+      border-radius: 4px;
+      background: var(--bg-2);
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: 1px solid var(--glass-border);
+    }
+    .log-entry .log-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .log-entry .log-actions .undo-btn {
+      background: transparent;
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .log-entry .log-actions .undo-btn:hover {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+    .log-entry .log-actions .undo-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .log-entry .log-actions .action-type-badge {
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--bg-2);
+      color: var(--text-muted);
+      border: 1px solid var(--glass-border);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .log-entry .log-actions .action-type-badge.assign { background: #2ecc71; color: #fff; border-color: #2ecc71; }
+    .log-entry .log-actions .action-type-badge.remove { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+    .log-entry .log-actions .action-type-badge.move { background: #f39c12; color: #fff; border-color: #f39c12; }
+    .log-entry .log-actions .action-type-badge.might { background: #9b59b6; color: #fff; border-color: #9b59b6; }
+    .log-entry .log-actions .action-type-badge.hero { background: #e91e63; color: #fff; border-color: #e91e63; }
+    .log-entry .log-actions .action-type-badge.preset { background: #3498db; color: #fff; border-color: #3498db; }
+    .log-entry .log-actions .action-type-badge.external { background: #1abc9c; color: #fff; border-color: #1abc9c; }
+    .log-entry .log-actions .action-type-badge.system { background: #7f8c8d; color: #fff; border-color: #7f8c8d; }
+    .log-entry .log-actions .action-type-badge.bulk_dm { background: #e67e22; color: #fff; border-color: #e67e22; }
+
+    .log-entry.undo-entry {
+      opacity: 0.6;
+      border-left: 3px solid var(--accent-amber);
+    }
+    .log-entry.undo-entry .log-body .action-text {
+      color: var(--text-muted);
+    }
+    .log-entry.undo-entry .log-body .undo-label {
+      color: var(--accent-amber);
+      font-weight: 600;
+    }
+
+    /* ---- Loading / empty ---- */
+    .logs-loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .logs-loading .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--glass-border);
+      border-top: 3px solid var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    .logs-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .logs-empty i {
+      font-size: 2.5rem;
+      color: var(--text-muted);
+      opacity: 0.4;
+      margin-bottom: 12px;
+    }
+
+    /* ---- Pagination / load more ---- */
+    .logs-pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px 0;
+    }
+    .logs-pagination .page-btn {
+      padding: 6px 14px;
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      background: var(--glass);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 0.85rem;
+    }
+    .logs-pagination .page-btn:hover {
+      background: var(--glass-strong);
+    }
+    .logs-pagination .page-btn.active {
+      background: var(--accent-blurple);
+      border-color: var(--accent-blurple);
+      color: #fff;
+    }
+    .logs-pagination .page-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .logs-pagination .page-info {
+      display: flex;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      padding: 0 8px;
+    }
+
+    /* ---- Infinite scroll trigger ---- */
+    .infinite-trigger {
+      text-align: center;
+      padding: 16px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .infinite-trigger .spinner-sm {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--glass-border);
+      border-top: 2px solid var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ---- Export modal preview ---- */
+    .export-preview-text {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    /* ---- Bulk DM progress modal ---- */
+    .bulk-dm-progress {
+      padding: 8px 0;
+    }
+    .bulk-dm-progress .progress-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .bulk-dm-progress .progress-stats .stat-card {
+      background: var(--bg-2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      text-align: center;
+      border: 1px solid var(--glass-border);
+    }
+    .bulk-dm-progress .progress-stats .stat-card .num {
+      font-size: 1.4rem;
+      font-weight: 700;
+      display: block;
+    }
+    .bulk-dm-progress .progress-stats .stat-card .label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+    .bulk-dm-progress .progress-bar-wrap {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .bulk-dm-progress .progress-bar-wrap .fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-blurple), var(--accent-cyan));
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .bulk-dm-progress .batch-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      margin-top: 8px;
+      font-size: 0.8rem;
+    }
+    .bulk-dm-progress .batch-list .name {
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+    }
+    .bulk-dm-progress .batch-list .name.done {
+      background: #2ecc71;
+      color: #fff;
+      border-color: #2ecc71;
+    }
+    .bulk-dm-progress .batch-list .name.failed {
+      background: #e74c3c;
+      color: #fff;
+      border-color: #e74c3c;
+    }
+    .bulk-dm-progress .batch-list .name.sending {
+      background: var(--accent-amber);
+      color: #fff;
+      border-color: var(--accent-amber);
+      animation: pulse-sending 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes pulse-sending {
+      0% { opacity: 0.7; transform: scale(0.98); }
+      100% { opacity: 1; transform: scale(1.02); }
+    }
+    .bulk-dm-progress .failed-list {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(231, 76, 60, 0.1);
+      border-radius: 6px;
+      border: 1px solid rgba(231, 76, 60, 0.3);
+    }
+    .bulk-dm-progress .failed-list .label {
+      font-weight: 600;
+      color: var(--danger);
+      font-size: 0.8rem;
+    }
+    .bulk-dm-progress .failed-list .names {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .bulk-dm-progress .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+
+    /* ---- Toast z-index ---- */
+    .toast-container {
+      z-index: 999999 !important;
+    }
+
+    /* ---- Cross button ---- */
+    .selector-box .close-btn,
+    .modal-header .close-btn {
+      background: rgba(255,255,255,0.1) !important;
+      border: 1px solid var(--glass-border) !important;
+      color: var(--text-primary) !important;
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 50% !important;
+      font-size: 1.3rem !important;
+      cursor: pointer !important;
+      transition: background 0.2s, transform 0.15s !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+    }
+    .selector-box .close-btn:hover,
+    .modal-header .close-btn:hover {
+      background: rgba(255,50,50,0.3) !important;
+      color: #fff !important;
+      transform: scale(1.05) !important;
+    }
+
+    /* ---- Button loading state ---- */
+    .btn-loading {
+      pointer-events: none !important;
+      opacity: 0.7;
+    }
+    .btn-loading .spinner-border-sm {
+      display: inline-block !important;
+      width: 1rem;
+      height: 1rem;
+      border: 0.15rem solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spinner-border 0.75s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spinner-border {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ---- Card fade animations ---- */
+    .player-card-fade-out {
+      animation: fadeOut 0.3s ease forwards;
+    }
+    .player-card-fade-in {
+      animation: fadeIn 0.3s ease forwards;
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.95); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* ---- Modal loading overlay ---- */
+    .modal-loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      color: #fff;
+      font-size: 1rem;
+      gap: 12px;
+    }
+    .modal-loading-overlay .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .modal-loading-overlay.hidden {
+      display: none;
+    }
+
+    /* ---- Modal overlay hidden by default ---- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal-overlay .modal-box {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      max-width: 750px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      position: relative;
+      font-family: var(--font-body), sans-serif;
+      color: var(--text-primary);
+      scrollbar-width: thin;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transform: scale(0.95);
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      opacity: 0;
+    }
+    .modal-overlay.open .modal-box {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      .logs-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .logs-toolbar .action-buttons {
+        margin-left: 0;
+        justify-content: flex-start;
+      }
+      .logs-toolbar .filter-group {
+        flex-wrap: wrap;
+      }
+      .logs-toolbar .filter-group select,
+      .logs-toolbar .filter-group input[type="date"] {
+        max-width: 100%;
+        flex: 1;
+        min-width: 120px;
+      }
+      .log-entry {
+        flex-wrap: wrap;
+        gap: 4px 8px;
+      }
+      .log-entry .log-time {
+        min-width: 60px;
+        font-size: 0.7rem;
+      }
+      .log-entry .log-avatar {
+        width: 22px;
+        height: 22px;
+      }
+      .log-entry .log-body {
+        font-size: 0.8rem;
+        width: 100%;
+        order: 3;
+      }
+      .log-entry .log-actions {
+        margin-left: auto;
+      }
+      .online-officers-panel .editing-indicator {
+        margin-left: 0;
+        width: 100%;
+      }
+      .logs-stats {
+        gap: 8px;
+      }
+      .logs-stats .stat-item {
+        font-size: 0.8rem;
+      }
+      .bulk-dm-progress .progress-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 480px) {
+      .logs-toolbar .search-wrap {
+        min-width: 100%;
+      }
+      .log-entry .log-actions .action-type-badge {
+        font-size: 0.55rem;
+        padding: 1px 6px;
+      }
+      .logs-toolbar .action-buttons .btn {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <%- include('../partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'warboard' }) %>
+    <div class="main-wrap">
+      <%- include('../partials/topbar') %>
+      <main class="page-content">
+        <div class="container warboard-logs-container">
+          <!-- Header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+            <div>
+              <h1 style="margin-bottom:4px;">Warboard Logs</h1>
+              <p class="text-muted" style="font-size:0.9rem;">Complete activity history for the Warboard</p>
+            </div>
+            <a href="/warboard" class="btn btn-ghost btn-sm">
+              <i class="bi bi-arrow-left"></i> Back to Warboard
+            </a>
+          </div>
+
+          <!-- Online Officers -->
+          <div class="online-officers-panel" id="onlineOfficersPanel">
+            <div class="label">
+              <span class="dot"></span>
+              Online Officers
+              <span id="officerCount" class="badge" style="background:var(--accent-blurple);color:#fff;padding:0 8px;border-radius:12px;font-size:0.7rem;">0</span>
+            </div>
+            <div class="officers-list" id="officersList">
+              <span class="text-muted" style="font-size:0.8rem;">Connecting...</span>
+            </div>
+            <div class="editing-indicator" id="editingIndicator"></div>
+          </div>
+
+          <!-- Stats -->
+          <div class="logs-stats" id="logsStats">
+            <div class="stat-item">Total: <strong id="statTotal">0</strong></div>
+            <div class="stat-item">Today: <strong id="statToday">0</strong></div>
+            <div class="stat-item">This week: <strong id="statWeek">0</strong></div>
+            <div class="stat-item">Actions: <span id="statActions" style="color:var(--text-primary);"></span></div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="logs-toolbar">
+            <div class="search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" id="logsSearch" placeholder="Search player or officer..." />
+            </div>
+            <div class="filter-group">
+              <select id="filterOfficer">
+                <option value="">All Officers</option>
+              </select>
+              <select id="filterBuilding">
+                <option value="">All Buildings</option>
+              </select>
+              <select id="filterAction">
+                <option value="">All Actions</option>
+                <option value="assign">Assign</option>
+                <option value="remove">Remove</option>
+                <option value="move">Move</option>
+                <option value="might_update">Might Update</option>
+                <option value="hero_upload">Hero Upload</option>
+                <option value="hero_delete">Hero Delete</option>
+                <option value="building_clear">Building Clear</option>
+                <option value="preset_save">Preset Save</option>
+                <option value="preset_load">Preset Load</option>
+                <option value="external_add">External Add</option>
+                <option value="external_delete">External Delete</option>
+                <option value="bulk_dm">Bulk DM</option>
+              </select>
+              <input type="date" id="filterDate" />
+              <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">
+                <i class="bi bi-x-circle"></i> Clear Filters
+              </button>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-ghost btn-sm" id="undoLastBtn" title="Undo Last Action">
+                <i class="bi bi-arrow-counterclockwise"></i> Undo Last
+              </button>
+              <button class="btn btn-ghost btn-sm" id="exportLogsBtn">
+                <i class="bi bi-download"></i> Export
+              </button>
+              <button class="btn btn-ghost btn-sm" id="refreshLogsBtn">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Logs list -->
+          <div class="glass card" style="padding:4px 0; overflow:hidden;">
+            <div class="logs-list" id="logsList"></div>
+            <div class="infinite-trigger" id="infiniteTrigger" style="display:none;">
+              <span class="spinner-sm"></span> Loading more...
+            </div>
+            <div class="logs-pagination" id="logsPagination" style="display:none;"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODALS – placed outside app-shell
+  ============================================================ -->
+
+  <!-- Export Modal -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal-box" style="max-width:700px;">
+      <div class="modal-header">
+        <div class="left"><h2 style="color:#f0e6d8; font-size:1.2rem;">Export Warboard Logs</h2></div>
+        <button class="close-btn" onclick="closeExportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <button class="btn btn-primary btn-sm" data-format="txt">Export as TXT</button>
+          <button class="btn btn-primary btn-sm" data-format="csv">Export as CSV</button>
+          <button class="btn btn-primary btn-sm" data-format="json">Export as JSON</button>
+        </div>
+        <div class="export-preview-text" id="exportPreviewText">Select a format to preview...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk DM Progress Modal -->
+  <div class="modal-overlay" id="bulkDmModal">
+    <div class="modal-box" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="left"><h2 style="color:#f0e6d8; font-size:1.2rem;">Sending Discord Messages</h2></div>
+        <button class="close-btn" id="bulkDmCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body bulk-dm-progress" id="bulkDmBody">
+        <div class="progress-stats">
+          <div class="stat-card"><span class="num" id="dmTotal">0</span><span class="label">Total</span></div>
+          <div class="stat-card"><span class="num" id="dmSent" style="color:#2ecc71;">0</span><span class="label">Sent</span></div>
+          <div class="stat-card"><span class="num" id="dmFailed" style="color:#e74c3c;">0</span><span class="label">Failed</span></div>
+        </div>
+        <div class="progress-bar-wrap"><div class="fill" id="dmProgressFill"></div></div>
+        <div style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-bottom:6px;">
+          <span id="dmStatusText">Preparing...</span>
+        </div>
+        <div class="batch-list" id="dmBatchList"></div>
+        <div class="failed-list" id="dmFailedList" style="display:none;">
+          <div class="label">Failed:</div>
+          <div class="names" id="dmFailedNames"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="dmCancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="dmRetryBtn" style="display:none;">Retry Failed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal (inline – no external include) -->
+  <div class="modal-overlay" id="confirmationModal">
+    <div class="modal-box" style="max-width:420px; padding:0;">
+      <div class="modal-header" style="background: var(--bg-2); border-bottom: 1px solid var(--glass-border);">
+        <div class="left"><h3 id="confirmModalTitle" style="color: var(--text-primary); font-size:1.1rem;">Confirm</h3></div>
+        <button class="close-btn" id="confirmModalClose">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:20px 24px;">
+        <p id="confirmModalMessage" style="margin:0 0 16px 0; color:var(--text-primary);"></p>
+        <div style="display:flex; justify-content:flex-end; gap:12px;">
+          <button class="btn btn-ghost" id="confirmModalCancel">Cancel</button>
+          <button class="btn btn-danger" id="confirmModalConfirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Socket.IO and scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <%- include('../partials/scripts') %>
+
+  <script>
+    // ============================================================
+    // TOAST – ensure it exists
+    // ============================================================
+    (function ensureToast() {
+      let container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        container.style.cssText =
+          'position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:999999;max-width:340px;pointer-events:none;';
+        document.body.appendChild(container);
+      }
+      if (!window.showToast) {
+        window.showToast = function(type, title, message, duration) {
+          if (typeof message === 'undefined' && typeof title !== 'undefined') {
+            message = title;
+            title = type.charAt(0).toUpperCase() + type.slice(1);
+          }
+          type = type || 'info';
+          title = title || '';
+          message = message || '';
+          duration = duration || 5000;
+          const el = document.createElement('div');
+          el.className = 'toast toast-' + type;
+          el.style.pointerEvents = 'auto';
+          const icons = { success: 'bi-check-circle', warning: 'bi-exclamation-triangle',
+            error: 'bi-x-circle', info: 'bi-info-circle' };
+          el.innerHTML = `
+            <i class="bi ${icons[type] || icons.info}"></i>
+            <div class="toast-body">
+              <div class="toast-title">${title}</div>
+              ${message ? '<div class="toast-msg">' + message + '</div>' : ''}
+            </div>
+            <button class="toast-close"><i class="bi bi-x"></i></button>
+            <div class="toast-timer"></div>
+          `;
+          container.appendChild(el);
+          requestAnimationFrame(() => el.classList.add('show'));
+          const timerBar = el.querySelector('.toast-timer');
+          timerBar.style.transitionDuration = duration + 'ms';
+          requestAnimationFrame(() => { timerBar.style.transform = 'scaleX(0)'; });
+          const remove = () => { el.classList.remove('show');
+            setTimeout(() => el.remove(), 250); };
+          const t = setTimeout(remove, duration);
+          el.querySelector('.toast-close').addEventListener('click', () => { clearTimeout(t);
+            remove(); });
+        };
+      }
+    })();
+
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const API_BASE = '/api/warboard';
+    const csrfToken = window.__CSRF_TOKEN__ || '';
+    const currentUser = <%- JSON.stringify(user || {}) %>;
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let logsData = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalLogs = 0;
+    let isLoading = false;
+    let hasMore = true;
+    let currentFilters = {
+      search: '',
+      officer: '',
+      building: '',
+      action: '',
+      date: ''
+    };
+    let socket = null;
+    let onlineOfficers = {};
+    let buildingEdits = {};
+    let isUndoing = false;
+
+    // ---- Filter options cache (built once) ----
+    let allOfficers = new Set();
+    let allBuildings = new Set();
+
+    // ============================================================
+    // LOADING HELPERS
+    // ============================================================
+    function setLoading(btn, loadingText = 'Loading...') {
+      if (!btn) return null;
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('btn-loading');
+      btn.innerHTML = `<span class="spinner-border-sm"></span> ${loadingText}`;
+      return function restore() {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+        btn.innerHTML = original;
+      };
+    }
+
+    // ============================================================
+    // SOCKET.IO
+    // ============================================================
+    function initSocket() {
+      try {
+        socket = io({
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 10,
+          reconnectionDelay: 1000,
+        });
+
+        socket.on('connect', () => {
+          console.log('[Warboard Logs] Socket connected');
+          socket.emit('warboard:join', { userId: currentUser.id });
+        });
+
+        socket.on('warboard:officers', (data) => {
+          onlineOfficers = data.officers || {};
+          renderOfficers();
+        });
+
+        socket.on('warboard:officer_status', (data) => {
+          onlineOfficers[data.userId] = { ...onlineOfficers[data.userId], ...data };
+          renderOfficers();
+        });
+
+        socket.on('warboard:building_edit', (data) => {
+          if (data.buildingId) {
+            buildingEdits[data.buildingId] = {
+              userId: data.userId,
+              username: data.username,
+              startedAt: data.startedAt || Date.now()
+            };
+          } else {
+            delete buildingEdits[data.buildingId];
+          }
+          renderEditingIndicator();
+        });
+
+        socket.on('warboard:log_new', (data) => {
+          const log = data.log;
+          if (log) {
+            logsData.unshift(log);
+            totalLogs++;
+            renderLogs();
+            updateStats();
+            if (window.showToast) {
+              const actor = log.actor_name || 'System';
+              window.showToast('info', 'New activity', actor + ' ' + (log.details || ''));
+            }
+          }
+        });
+
+        socket.on('warboard:building_updated', (data) => {
+          if (data.buildingId) {
+            const event = new CustomEvent('warboard:building_updated', { detail: data });
+            document.dispatchEvent(event);
+            refreshLogs(false);
+          }
+        });
+
+        socket.on('disconnect', () => {
+          console.log('[Warboard Logs] Socket disconnected');
+        });
+
+        socket.on('connect_error', (err) => {
+          console.warn('[Warboard Logs] Socket error:', err.message);
+        });
+      } catch (e) {
+        console.warn('[Warboard Logs] Socket init failed:', e.message);
+      }
+    }
+
+    function renderOfficers() {
+      const list = document.getElementById('officersList');
+      const count = document.getElementById('officerCount');
+      const entries = Object.entries(onlineOfficers);
+      count.textContent = entries.length;
+      if (entries.length === 0) {
+        list.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">No officers online</span>';
+        return;
+      }
+      list.innerHTML = entries.map(([id, data]) => {
+        const status = data.status || 'active';
+        const statusDot = status === 'active' ? 'active' : status === 'idle' ? 'idle' : 'away';
+        const name = data.username || 'Unknown';
+        return `<span class="officer-tag">
+          <span class="status-dot ${statusDot}"></span>
+          ${name}
+          ${data.editing ? ' ✏️' : ''}
+        </span>`;
+      }).join('');
+    }
+
+    function renderEditingIndicator() {
+      const el = document.getElementById('editingIndicator');
+      const entries = Object.entries(buildingEdits).filter(([id, data]) => data.userId !== currentUser.id);
+      if (entries.length === 0) {
+        el.textContent = '';
+        return;
+      }
+      const parts = entries.map(([id, data]) => {
+        const buildingName = getBuildingName(id);
+        return `${data.username} is editing ${buildingName || id}...`;
+      });
+      el.textContent = '🔴 ' + parts.join(' | ');
+    }
+
+    function getBuildingName(id) {
+      const map = {
+        citadel: 'Citadel',
+        main_gate: 'Main Gate',
+        docks: 'Docks',
+        boathouse: 'Boathouse',
+        tower_of_elements: 'Tower of Elements',
+        tower_of_foresight: 'Tower of Foresight',
+        central_bridge: 'Central Bridge',
+        western_bridge: 'Western Bridge',
+        eastern_bridge: 'Eastern Bridge',
+        laboratory: 'Laboratory',
+        scriptorium: 'Scriptorium'
+      };
+      return map[id] || id;
+    }
+
+    // ============================================================
+    // FETCH LOGS
+    // ============================================================
+    async function fetchLogs(page, filters, append = false) {
+      if (isLoading) return;
+      isLoading = true;
+      const trigger = document.getElementById('infiniteTrigger');
+      if (!append) {
+        document.getElementById('logsList').innerHTML =
+          '<div class="logs-loading"><div class="spinner"></div><span>Loading logs...</span></div>';
+      } else {
+        if (trigger) trigger.style.display = 'block';
+      }
+
+      try {
+        const params = new URLSearchParams({
+          page: page || 1,
+          limit: 50,
+          search: filters.search || '',
+          officer: filters.officer || '',
+          building: filters.building || '',
+          action: filters.action || '',
+          date: filters.date || '',
+        });
+        const res = await fetch(API_BASE + '/logs?' + params.toString(), {
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const logs = data.logs || [];
+        totalLogs = data.total || 0;
+        totalPages = data.pages || 1;
+        currentPage = data.page || 1;
+        hasMore = data.hasMore || false;
+
+        if (append) {
+          logsData = [...logsData, ...logs];
+        } else {
+          logsData = logs;
+        }
+
+        renderLogs();
+        updateStats();
+        renderPagination();
+
+        // Build filter options only once (first load)
+        if (!append && page === 1 && logs.length > 0) {
+          logs.forEach(log => {
+            if (log.actor_name) allOfficers.add(log.actor_name);
+            if (log.building_id) {
+              const name = getBuildingName(log.building_id);
+              allBuildings.add(name);
+            }
+            if (log.details) {
+              const bNames = ['Citadel', 'Main Gate', 'Docks', 'Boathouse', 'Tower of Elements',
+                'Tower of Foresight', 'Central Bridge', 'Western Bridge', 'Eastern Bridge',
+                'Laboratory', 'Scriptorium'
+              ];
+              bNames.forEach(n => {
+                if (log.details.includes(n)) allBuildings.add(n);
+              });
+            }
+          });
+          populateFilterOptions();
+        }
+
+        if (trigger) trigger.style.display = 'none';
+      } catch (e) {
+        console.error('[Warboard Logs] Fetch error:', e);
+        document.getElementById('logsList').innerHTML =
+          `<div class="logs-empty"><i class="bi bi-exclamation-triangle"></i><p>Failed to load logs: ${e.message}</p></div>`;
+        if (trigger) trigger.style.display = 'none';
+      }
+      isLoading = false;
+    }
+
+    function populateFilterOptions() {
+      const officerSelect = document.getElementById('filterOfficer');
+      const buildingSelect = document.getElementById('filterBuilding');
+      const selectedOfficer = officerSelect.value;
+      const selectedBuilding = buildingSelect.value;
+      officerSelect.innerHTML = '<option value="">All Officers</option>' +
+        Array.from(allOfficers).sort().map(o => `<option value="${o}">${o}</option>`).join('');
+      buildingSelect.innerHTML = '<option value="">All Buildings</option>' +
+        Array.from(allBuildings).sort().map(b => `<option value="${b}">${b}</option>`).join('');
+      officerSelect.value = selectedOfficer;
+      buildingSelect.value = selectedBuilding;
+    }
+
+    function renderLogs() {
+      const list = document.getElementById('logsList');
+      if (logsData.length === 0) {
+        list.innerHTML =
+          `<div class="logs-empty"><i class="bi bi-inbox"></i><p>No logs found</p><span class="text-muted" style="font-size:0.8rem;">Try adjusting your filters</span></div>`;
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      logsData.forEach((log, index) => {
+        const entry = createLogEntry(log, index);
+        fragment.appendChild(entry);
+      });
+      list.innerHTML = '';
+      list.appendChild(fragment);
+    }
+
+    function createLogEntry(log, index) {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      if (log.is_undo) div.classList.add('undo-entry');
+
+      const time = document.createElement('div');
+      time.className = 'log-time';
+      const d = new Date(log.created_at);
+      time.textContent = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      div.appendChild(time);
+
+      const avatar = document.createElement('img');
+      avatar.className = 'log-avatar';
+      const actorAvatar = log.actor_avatar || null;
+      if (actorAvatar) {
+        avatar.src = actorAvatar;
+        avatar.onerror = function() {
+          this.onerror = null;
+          this.className = 'log-avatar fallback';
+          this.textContent = (log.actor_name || '?').charAt(0).toUpperCase();
+          this.removeAttribute('src');
+        };
+      } else {
+        avatar.className = 'log-avatar fallback';
+        avatar.textContent = (log.actor_name || 'S').charAt(0).toUpperCase();
+        avatar.style.background = getColorForName(log.actor_name || 'System');
+      }
+      div.appendChild(avatar);
+
+      const body = document.createElement('div');
+      body.className = 'log-body';
+      const actor = document.createElement('span');
+      actor.className = 'actor';
+      actor.textContent = log.actor_name || 'System';
+      body.appendChild(actor);
+
+      const actionText = document.createElement('span');
+      actionText.className = 'action-text';
+      let details = log.details || '';
+      const buildingNames = ['Citadel', 'Main Gate', 'Docks', 'Boathouse', 'Tower of Elements',
+        'Tower of Foresight', 'Central Bridge', 'Western Bridge', 'Eastern Bridge', 'Laboratory',
+        'Scriptorium'
+      ];
+      buildingNames.forEach(name => {
+        details = details.replace(new RegExp(name, 'g'), `<span class="highlight">${name}</span>`);
+      });
+      details = details.replace(/\b(assigned|removed|moved|updated|uploaded|deleted|added|cleared|loaded|saved)\b/g,
+        (match) => `<span style="color:var(--text-muted);">${match}</span>`);
+
+      if (log.is_undo) {
+        actionText.innerHTML = ` <span class="undo-label">↩️ UNDO</span> — ${details}`;
+      } else {
+        actionText.innerHTML = ' ' + details;
+      }
+      body.appendChild(actionText);
+      div.appendChild(body);
+
+      const actions = document.createElement('div');
+      actions.className = 'log-actions';
+      const badge = document.createElement('span');
+      badge.className = 'action-type-badge ' + (log.action || '');
+      badge.textContent = log.action ? log.action.replace(/_/g, ' ') : 'unknown';
+      actions.appendChild(badge);
+
+      if (!log.is_undo && log.undoable !== false && currentUser.permissions &&
+        currentUser.permissions.includes('manage_warboard')) {
+        const undoBtn = document.createElement('button');
+        undoBtn.className = 'undo-btn';
+        undoBtn.textContent = '↩ Undo';
+        undoBtn.dataset.logId = log.id;
+        undoBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleUndo(log.id, log);
+        });
+        actions.appendChild(undoBtn);
+      }
+
+      div.appendChild(actions);
+      return div;
+    }
+
+    function getColorForName(name) {
+      const colors = ['#7c3aed', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#ef4444', '#6366f1',
+        '#34d399', '#14b8a6'
+      ];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return colors[Math.abs(hash) % colors.length];
+    }
+
+    function updateStats() {
+      document.getElementById('statTotal').textContent = totalLogs;
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      let todayCount = 0,
+        weekCount = 0;
+      const actionCounts = {};
+      logsData.forEach(log => {
+        const d = new Date(log.created_at);
+        if (d >= today) todayCount++;
+        if (d >= weekAgo) weekCount++;
+        if (log.action) actionCounts[log.action] = (actionCounts[log.action] || 0) + 1;
+      });
+      document.getElementById('statToday').textContent = todayCount;
+      document.getElementById('statWeek').textContent = weekCount;
+      const topAction = Object.entries(actionCounts).sort((a, b) => b[1] - a[1])[0];
+      document.getElementById('statActions').textContent = topAction ? `${topAction[0]} (${topAction[1]})` :
+      '—';
+    }
+
+    function renderPagination() {
+      const container = document.getElementById('logsPagination');
+      if (totalPages <= 1) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'flex';
+      let html = '';
+      html +=
+        `<button class="page-btn" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>‹</button>`;
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
+          html +=
+            `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+        } else if (Math.abs(i - currentPage) === 3) {
+          html += `<span class="page-info">…</span>`;
+        }
+      }
+      html +=
+        `<button class="page-btn" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>›</button>`;
+      container.innerHTML = html;
+      container.querySelectorAll('.page-btn:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const page = parseInt(btn.dataset.page);
+          if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            fetchLogs(currentPage, currentFilters, false);
+          }
+        });
+      });
+    }
+
+    // ============================================================
+    // FILTERS
+    // ============================================================
+    function applyFilters() {
+      currentFilters = {
+        search: document.getElementById('logsSearch').value.trim(),
+        officer: document.getElementById('filterOfficer').value,
+        building: document.getElementById('filterBuilding').value,
+        action: document.getElementById('filterAction').value,
+        date: document.getElementById('filterDate').value,
+      };
+      currentPage = 1;
+      fetchLogs(currentPage, currentFilters, false);
+    }
+
+    function clearFilters() {
+      document.getElementById('logsSearch').value = '';
+      document.getElementById('filterOfficer').value = '';
+      document.getElementById('filterBuilding').value = '';
+      document.getElementById('filterAction').value = '';
+      document.getElementById('filterDate').value = '';
+      applyFilters();
+    }
+
+    // ============================================================
+    // UNDO
+    // ============================================================
+    async function handleUndo(logId, log) {
+      if (isUndoing) return;
+      if (!confirm('Undo this action?\n\n' + (log.details || '') + '\n\nThis will reverse the operation.'))
+        return;
+      isUndoing = true;
+      try {
+        const res = await fetch(API_BASE + '/logs/undo/' + logId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify({})
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (window.showToast) window.showToast('success', 'Undo successful: ' + (data.message ||
+            'Action reversed'));
+          await refreshLogs(false);
+          if (socket) {
+            socket.emit('warboard:log_new', { log: data.undoLog });
+          }
+        } else {
+          const err = await res.json();
+          window.showToast('error', 'Undo failed: ' + (err.error || 'Unknown error'));
+        }
+      } catch (e) {
+        window.showToast('error', 'Network error: ' + e.message);
+      }
+      isUndoing = false;
+    }
+
+    document.getElementById('undoLastBtn').addEventListener('click', async () => {
+      if (logsData.length === 0) {
+        window.showToast('warning', 'No logs to undo');
+        return;
+      }
+      const last = logsData.find(l => !l.is_undo && l.undoable !== false);
+      if (!last) {
+        window.showToast('warning', 'No undoable action found');
+        return;
+      }
+      handleUndo(last.id, last);
+    });
+
+    // ============================================================
+    // REFRESH
+    // ============================================================
+    async function refreshLogs(showToast = true) {
+      await fetchLogs(currentPage, currentFilters, false);
+      if (showToast && window.showToast) window.showToast('info', 'Logs refreshed');
+    }
+
+    document.getElementById('refreshLogsBtn').addEventListener('click', () => refreshLogs(true));
+
+    // ============================================================
+    // EXPORT
+    // ============================================================
+    document.getElementById('exportLogsBtn').addEventListener('click', () => {
+      document.getElementById('exportModal').classList.add('open');
+      document.getElementById('exportPreviewText').textContent = 'Select a format to preview...';
+    });
+
+    function closeExportModal() {
+      document.getElementById('exportModal').classList.remove('open');
+    }
+    document.querySelector('#exportModal .close-btn').addEventListener('click', closeExportModal);
+    document.getElementById('exportModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeExportModal();
+    });
+
+    document.querySelectorAll('#exportModal [data-format]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const format = btn.dataset.format;
+        const preview = document.getElementById('exportPreviewText');
+        preview.textContent = 'Generating...';
+        try {
+          const params = new URLSearchParams({
+            format: format,
+            search: currentFilters.search || '',
+            officer: currentFilters.officer || '',
+            building: currentFilters.building || '',
+            action: currentFilters.action || '',
+            date: currentFilters.date || '',
+          });
+          const res = await fetch(API_BASE + '/logs/export?' + params.toString(), {
+            headers: { 'x-csrf-token': csrfToken }
+          });
+          if (res.ok) {
+            if (format === 'json') {
+              const data = await res.json();
+              preview.textContent = JSON.stringify(data, null, 2);
+            } else {
+              const text = await res.text();
+              preview.textContent = text;
+            }
+            const blob = await res.clone().blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `warboard_logs.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            window.showToast('success', `Export as ${format.toUpperCase()} downloaded`);
+          } else {
+            const err = await res.text();
+            preview.textContent = 'Export failed: ' + err;
+          }
+        } catch (e) {
+          preview.textContent = 'Error: ' + e.message;
+        }
+      });
+    });
+
+    // ============================================================
+    // BULK DM – Discord Integration (listens for events)
+    // ============================================================
+    document.addEventListener('warboard:bulk_dm', async (event) => {
+      const { buildingId, players } = event.detail || {};
+      if (!buildingId || !players || players.length === 0) {
+        window.showToast('warning', 'No players to DM');
+        return;
+      }
+      const modal = document.getElementById('bulkDmModal');
+      modal.classList.add('open');
+      document.getElementById('bulkDmBody').style.display = 'block';
+      document.getElementById('dmTotal').textContent = players.length;
+      document.getElementById('dmSent').textContent = '0';
+      document.getElementById('dmFailed').textContent = '0';
+      document.getElementById('dmProgressFill').style.width = '0%';
+      document.getElementById('dmStatusText').textContent = 'Starting...';
+      document.getElementById('dmBatchList').innerHTML = '';
+      document.getElementById('dmFailedList').style.display = 'none';
+      document.getElementById('dmRetryBtn').style.display = 'none';
+      document.getElementById('dmCancelBtn').disabled = false;
+
+      const buildingName = getBuildingName(buildingId);
+      let cancelled = false;
+      let completed = false;
+      let failedPlayers = [];
+      let sentCount = 0;
+      let failedCount = 0;
+
+      const cancelHandler = () => {
+        cancelled = true;
+        document.getElementById('dmCancelBtn').disabled = true;
+        document.getElementById('dmStatusText').textContent = 'Cancelled by user.';
+        window.showToast('warning', 'Bulk DM cancelled');
+      };
+      document.getElementById('dmCancelBtn').onclick = cancelHandler;
+      document.getElementById('bulkDmCloseBtn').onclick = () => {
+        if (!completed) {
+          if (confirm('DM sending in progress. Cancel and close?')) {
+            cancelled = true;
+            modal.classList.remove('open');
+          }
+        } else {
+          modal.classList.remove('open');
+        }
+      };
+
+      document.getElementById('dmRetryBtn').onclick = async () => {
+        if (failedPlayers.length === 0) return;
+        const retryPlayers = [...failedPlayers];
+        failedPlayers = [];
+        document.getElementById('dmFailedList').style.display = 'none';
+        document.getElementById('dmRetryBtn').style.display = 'none';
+        await sendBulkDmBatch(buildingId, buildingName, retryPlayers, true);
+      };
+
+      const batchSize = 5;
+      const delayMs = 2000;
+
+      async function sendBulkDmBatch(buildingId, buildingName, batch, isRetry = false) {
+        const total = players.length;
+        const batchList = document.getElementById('dmBatchList');
+
+        for (let i = 0; i < batch.length; i++) {
+          if (cancelled) break;
+          const player = batch[i];
+          const nameLabel = player.displayName || player.username || 'Unknown';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'name sending';
+          nameSpan.textContent = nameLabel;
+          nameSpan.dataset.playerId = player.discordId || player.id;
+          batchList.appendChild(nameSpan);
+          batchList.scrollTop = batchList.scrollHeight;
+
+          document.getElementById('dmStatusText').textContent =
+            `Sending to ${nameLabel}... (${sentCount + failedCount + 1}/${total})`;
+
+          try {
+            const res = await fetch(API_BASE + '/logs/bulk-dm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+              body: JSON.stringify({
+                buildingId: buildingId,
+                playerId: player.discordId || player.id,
+                playerName: nameLabel,
+                playerType: player.type || 'discord',
+              })
+            });
+            if (res.ok) {
+              nameSpan.className = 'name done';
+              nameSpan.textContent = '✅ ' + nameLabel;
+              sentCount++;
+            } else {
+              const err = await res.json();
+              nameSpan.className = 'name failed';
+              nameSpan.textContent = '❌ ' + nameLabel;
+              failedCount++;
+              if (!isRetry) failedPlayers.push(player);
+              console.warn('[Bulk DM] Failed for', nameLabel, err);
+            }
+          } catch (e) {
+            nameSpan.className = 'name failed';
+            nameSpan.textContent = '❌ ' + nameLabel;
+            failedCount++;
+            if (!isRetry) failedPlayers.push(player);
+            console.warn('[Bulk DM] Network error for', nameLabel, e);
+          }
+
+          document.getElementById('dmSent').textContent = sentCount;
+          document.getElementById('dmFailed').textContent = failedCount;
+          const progress = ((sentCount + failedCount) / total) * 100;
+          document.getElementById('dmProgressFill').style.width = Math.min(progress, 100) + '%';
+
+          if (i < batch.length - 1 && !cancelled) {
+            await sleep(delayMs);
+          }
+        }
+
+        if (!cancelled && (sentCount + failedCount) < total) {
+          const remaining = players.filter(p => {
+            const isDone = batchList.querySelector(
+              `[data-player-id="${p.discordId || p.id}"]`);
+            return !isDone;
+          });
+          if (remaining.length > 0) {
+            const nextBatch = remaining.slice(0, batchSize);
+            await sleep(500);
+            await sendBulkDmBatch(buildingId, buildingName, nextBatch, isRetry);
+          }
+        }
+      }
+
+      const initialBatch = players.slice(0, batchSize);
+      await sendBulkDmBatch(buildingId, buildingName, initialBatch, false);
+
+      completed = true;
+      document.getElementById('dmCancelBtn').disabled = true;
+      if (failedPlayers.length > 0) {
+        document.getElementById('dmFailedList').style.display = 'block';
+        document.getElementById('dmFailedNames').textContent = failedPlayers.map(p => p.displayName || p
+          .username || 'Unknown').join(', ');
+        document.getElementById('dmRetryBtn').style.display = 'inline-block';
+        document.getElementById('dmStatusText').textContent =
+          `Completed with ${failedPlayers.length} failures.`;
+        window.showToast('warning', `Bulk DM completed with ${failedPlayers.length} failures`);
+      } else {
+        document.getElementById('dmStatusText').textContent =
+          `✅ All ${sentCount} messages sent successfully!`;
+        window.showToast('success', `Bulk DM completed: ${sentCount} messages sent`);
+        await fetch(API_BASE + '/logs/bulk-dm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify({
+            buildingId: buildingId,
+            total: sentCount + failedCount,
+            sent: sentCount,
+            failed: failedCount,
+            logOnly: true
+          })
+        });
+      }
+      await refreshLogs(false);
+    });
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ============================================================
+    // EVENT LISTENERS – Filters
+    // ============================================================
+    let filterTimeout = null;
+
+    function debounceFilters() {
+      clearTimeout(filterTimeout);
+      filterTimeout = setTimeout(applyFilters, 400);
+    }
+
+    document.getElementById('logsSearch').addEventListener('input', debounceFilters);
+    document.getElementById('filterOfficer').addEventListener('change', applyFilters);
+    document.getElementById('filterBuilding').addEventListener('change', applyFilters);
+    document.getElementById('filterAction').addEventListener('change', applyFilters);
+    document.getElementById('filterDate').addEventListener('change', applyFilters);
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+
+    // ============================================================
+    // INFINITE SCROLL
+    // ============================================================
+    let observer = null;
+
+    function setupInfiniteScroll() {
+      const trigger = document.getElementById('infiniteTrigger');
+      if (!trigger) return;
+      if (observer) observer.disconnect();
+      observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          const nextPage = currentPage + 1;
+          if (nextPage <= totalPages) {
+            fetchLogs(nextPage, currentFilters, true);
+          }
+        }
+      }, { rootMargin: '200px' });
+      observer.observe(trigger);
+    }
+
+    // ============================================================
+    // CONFIRMATION MODAL (inline)
+    // ============================================================
+    let confirmResolve = null;
+    document.getElementById('confirmModalConfirm').addEventListener('click', () => {
+      if (confirmResolve) {
+        confirmResolve(true);
+        document.getElementById('confirmationModal').classList.remove('open');
+        confirmResolve = null;
+      }
+    });
+    document.getElementById('confirmModalCancel').addEventListener('click', () => {
+      if (confirmResolve) {
+        confirmResolve(false);
+        document.getElementById('confirmationModal').classList.remove('open');
+        confirmResolve = null;
+      }
+    });
+    document.getElementById('confirmModalClose').addEventListener('click', () => {
+      if (confirmResolve) {
+        confirmResolve(false);
+        document.getElementById('confirmationModal').classList.remove('open');
+        confirmResolve = null;
+      }
+    });
+
+    window.showConfirmation = function(title, message) {
+      return new Promise((resolve) => {
+        document.getElementById('confirmModalTitle').textContent = title || 'Confirm';
+        document.getElementById('confirmModalMessage').textContent = message || 'Are you sure?';
+        document.getElementById('confirmationModal').classList.add('open');
+        confirmResolve = resolve;
+      });
+    };
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    async function init() {
+      // Do NOT set date filter to today – leave blank.
+      initSocket();
+      await fetchLogs(1, currentFilters, false);
+      setupInfiniteScroll();
+
+      const loader = document.getElementById('hc-loading-screen');
+      if (loader) {
+        loader.classList.add('fade-out');
+        setTimeout(() => { if (loader.parentNode) loader.remove(); }, 500);
+      }
+
+      document.addEventListener('warboard:building_updated', (e) => {
+        const { buildingId } = e.detail || {};
+        if (buildingId && window.showToast) {
+          window.showToast('info', 'Building updated', getBuildingName(buildingId) +
+            ' was modified');
+        }
+      });
+
+      console.log('[Warboard Logs] Initialized');
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

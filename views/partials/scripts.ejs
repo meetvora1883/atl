@@ -1,0 +1,81 @@
+<!-- CSRF token – fallback if head didn't set it -->
+<script>
+  if (typeof window.__CSRF_TOKEN__ === 'undefined') {
+    window.__CSRF_TOKEN__ = "<%= csrfToken %>";
+  }
+</script>
+
+<!-- Socket.IO client -->
+<script src="/socket.io/socket.io.js"></script>
+
+<!-- API client -->
+<script src="/js/api-client.js"></script>
+
+<!-- App shell -->
+<script src="/js/app-shell.js"></script>
+
+<!-- Ripple effect -->
+<script src="/js/ripple.js"></script>
+
+<!-- PWA support (replaces old SW registration) -->
+<script src="/js/pwa.js"></script>
+
+<!-- Global date formatter -->
+<script>
+  (function() {
+    let dateFormat = 'MM/DD/YYYY';
+
+    function formatDate(dateStr) {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return 'Invalid date';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const fmt = dateFormat || 'MM/DD/YYYY';
+      return fmt
+        .replace('MM', month)
+        .replace('DD', day)
+        .replace('YYYY', year);
+    }
+
+    async function loadDateFormat() {
+      try {
+        const fetchFn = (typeof apiFetch !== 'undefined') ? apiFetch : window.fetch;
+        const res = await fetchFn('/api/settings', {
+          headers: { 'x-csrf-token': window.__CSRF_TOKEN__ || '' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.global && data.global.dateFormat) {
+            dateFormat = data.global.dateFormat;
+            console.log('[Date format] Using:', dateFormat);
+          }
+        }
+      } catch (e) {
+        console.warn('[Date format] Could not load, using default:', e.message);
+      }
+      document.querySelectorAll('.format-date').forEach(el => {
+        const date = el.getAttribute('data-date') || el.textContent.trim();
+        if (date) {
+          el.textContent = formatDate(date);
+        }
+      });
+    }
+
+    window.formatDate = formatDate;
+    window.__refreshDates = loadDateFormat;
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadDateFormat);
+    } else {
+      loadDateFormat();
+    }
+    setTimeout(loadDateFormat, 500);
+
+    console.log('[Date format] Script initialized');
+  })();
+</script>
+
+<!-- Reusable confirmation modal -->
+<%- include('confirmation-modal') %>

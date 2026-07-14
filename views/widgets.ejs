@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Dashboard Widgets' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'dashboard' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content" style="max-width:820px;">
+        <h2 style="margin-bottom:24px;">Customize Dashboard</h2>
+
+        <div class="grid grid-2">
+          <div class="glass card">
+            <h3 class="section-title">Available Widgets</h3>
+            <div id="available-widgets" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+
+          <div class="glass card">
+            <h3 class="section-title">Your Dashboard (drag to reorder)</h3>
+            <div id="active-widgets" style="display:flex; flex-direction:column; gap:8px; min-height:280px; padding:12px; background:rgba(255,255,255,0.02); border-radius:10px; border:1px dashed var(--glass-border);"></div>
+          </div>
+        </div>
+
+        <div class="glass card mt-24">
+          <h3 class="section-title">Customize Theme</h3>
+          <div class="field">
+            <label>Accent Color</label>
+            <input id="accent" type="color" value="#5865f2" style="width:50px;" />
+          </div>
+          <div class="field">
+            <label>Sidebar Color</label>
+            <input id="sidebar" type="color" value="#07050f" style="width:50px;" />
+          </div>
+          <button class="btn btn-primary" onclick="saveTheme()">Save Theme</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .widget-item { padding:10px 12px; background:var(--glass); border-radius:8px; cursor:grab; font-size:0.9rem; user-select:none; }
+    .widget-item:active { cursor:grabbing; }
+  </style>
+
+  <script>
+    const CSRF_TOKEN = "<%= csrfToken %>";
+    const ALL_WIDGETS = ['stats', 'announcements', 'activity', 'members', 'charts', 'events', 'weather', 'bot-status'];
+
+    async function load() {
+      const res = await apiFetch('/api/widgets');
+      const { widgets } = await res.json();
+      renderWidgets(widgets);
+    }
+
+    function renderWidgets(active) {
+      const available = ALL_WIDGETS.filter(w => !active.includes(w));
+      document.getElementById('available-widgets').innerHTML = available.map(w => 
+        `<div class="widget-item" draggable="true" data-widget="${w}" ondragstart="dragStart(event)">${w}</div>`
+      ).join('');
+      document.getElementById('active-widgets').innerHTML = active.map(w => 
+        `<div class="widget-item" draggable="true" data-widget="${w}" ondragstart="dragStart(event)" style="background:rgba(79,209,255,0.15); border-left:3px solid var(--accent-cyan); padding-left:9px;">✓ ${w}</div>`
+      ).join('');
+    }
+
+    let draggedWidget = null;
+    function dragStart(e) { draggedWidget = e.target.dataset.widget; }
+
+    document.addEventListener('dragover', (e) => e.preventDefault());
+
+    async function saveTheme() {
+      const res = await apiFetch('/api/widgets/theme', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': CSRF_TOKEN },
+        body: JSON.stringify({
+          accent: document.getElementById('accent').value,
+          sidebar: document.getElementById('sidebar').value,
+        }),
+      });
+      if (res.ok) window.showToast('success', 'Theme saved');
+    }
+
+    load();
+  </script>
+  <%- include('partials/scripts') %>
+</body>
+</html>

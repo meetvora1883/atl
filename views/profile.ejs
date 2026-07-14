@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Profile' }) %>
+  <style>
+    .profile-banner {
+      width: 100%;
+      height: 120px;
+      background: linear-gradient(135deg, var(--accent-blurple), var(--accent-purple));
+      border-radius: var(--radius) var(--radius) 0 0;
+      margin-bottom: -40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-banner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .profile-avatar-wrapper {
+      position: relative;
+      padding: 0 20px;
+      margin-top: -50px;
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      z-index: 1;
+    }
+    .profile-avatar {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      border: 4px solid var(--bg-1);
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .profile-avatar-fallback {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-blurple), var(--accent-pink));
+      color: #fff;
+      border: 4px solid var(--bg-1);
+      flex-shrink: 0;
+    }
+    .profile-name-area {
+      padding-bottom: 8px;
+    }
+    .profile-name-area h2 {
+      margin: 0 0 2px;
+      font-size: 1.4rem;
+    }
+    .profile-name-area .sub {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .profile-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 24px;
+      margin-top: 20px;
+    }
+    .profile-info-item {
+      display: flex;
+      flex-direction: column;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .profile-info-item .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .profile-info-item .value {
+      font-size: 0.95rem;
+      word-break: break-all;
+    }
+    .profile-info-item .value .mono {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    .email-toggle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .email-toggle .toggle-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .email-toggle input[type="checkbox"] {
+      width: 36px;
+      height: 20px;
+      appearance: none;
+      background: var(--glass);
+      border-radius: 999px;
+      position: relative;
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .email-toggle input[type="checkbox"]::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.15s ease;
+    }
+    .email-toggle input[type="checkbox"]:checked {
+      background: linear-gradient(135deg, var(--accent-blurple), var(--accent-cyan));
+    }
+    .email-toggle input[type="checkbox"]:checked::after {
+      transform: translateX(16px);
+    }
+    .role-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      margin: 2px 6px 2px 0;
+      background: rgba(79,209,255,0.15);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+    }
+    .role-badge i { font-size: 0.7rem; margin-right: 4px; }
+    @media (max-width: 768px) {
+      .profile-banner { height: 80px; }
+      .profile-avatar-wrapper { margin-top: -35px; flex-wrap: wrap; }
+      .profile-avatar, .profile-avatar-fallback { width: 70px; height: 70px; font-size: 2rem; }
+      .profile-info-grid { grid-template-columns: 1fr; gap: 8px; }
+      .profile-name-area h2 { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'profile' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <main class="page-content">
+        <div class="container">
+          <h1 style="margin-bottom: 8px;"><%= t['profile.title'] || 'Profile' %></h1>
+          <p class="text-muted" style="margin-bottom: 24px;"><%= t['profile.subtitle'] || 'Your Discord and dashboard information' %></p>
+
+          <div class="glass card" style="padding:0; overflow:hidden;">
+            <!-- Banner -->
+            <div class="profile-banner">
+              <% if (user.banner) { %>
+                <img src="<%= user.banner %>" alt="Banner" />
+              <% } else { %>
+                <div style="width:100%;height:100%;background:linear-gradient(135deg,var(--accent-blurple),var(--accent-purple));"></div>
+              <% } %>
+            </div>
+
+            <!-- Avatar + Name -->
+            <div class="profile-avatar-wrapper">
+              <% if (user.avatar) { %>
+                <img src="<%= user.avatar %>" class="profile-avatar" alt="<%= user.username %>" />
+              <% } else { %>
+                <div class="profile-avatar-fallback"><%= user.username ? user.username.charAt(0).toUpperCase() : '?' %></div>
+              <% } %>
+              <div class="profile-name-area">
+                <h2><%= user.username %></h2>
+                <div class="sub"><%= t['profile.discord_id'] || 'Discord ID' %>: <span class="mono"><%= user.discord_id %></span></div>
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div style="padding: 20px 24px 24px;">
+              <!-- Roles -->
+              <div style="margin-bottom:16px;">
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;"><%= t['profile.roles'] || 'Roles' %></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <% if (user.rolesFull && user.rolesFull.length) { %>
+                    <% user.rolesFull.forEach(r => { %>
+                      <span class="role-badge" style="background: <%= r.color %>30; color: <%= r.color %>; border-color: <%= r.color %>;">
+                        <i class="bi <%= r.icon || 'bi-shield' %>"></i> <%= r.name %>
+                      </span>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="text-muted" style="font-size:0.85rem;"><%= t['profile.no_roles'] || 'No roles' %></span>
+                  <% } %>
+                </div>
+              </div>
+
+              <!-- Information Grid -->
+              <div class="profile-info-grid">
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.display_name'] || 'Display Name' %></span>
+                  <span class="value"><%= user.username %></span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.discord_id'] || 'Discord ID' %></span>
+                  <span class="value mono"><%= user.discord_id %></span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.email'] || 'Email' %></span>
+                  <div class="value email-toggle">
+                    <span id="email-display" style="<%= user.email ? '' : 'color:var(--text-muted);' %>">
+                      <%= user.email || t['profile.no_email'] || 'Not provided' %>
+                    </span>
+                    <label class="toggle-label">
+                      <input type="checkbox" id="email-toggle" <%= user.email ? 'checked' : 'disabled' %> />
+                      <span style="font-size:0.7rem;"><%= t['profile.show'] || 'Show' %></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.bio'] || 'About Me' %></span>
+                  <span class="value"><%= user.bio || t['profile.no_bio'] || 'No bio set' %></span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.dashboard_joined'] || 'Joined Dashboard' %></span>
+                  <span class="value"><span class="format-date" data-date="<%= user.created_at %>"></span></span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.last_login'] || 'Last Login' %></span>
+                  <span class="value"><span class="format-date" data-date="<%= user.last_login_at %>"></span></span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.timezone'] || 'Timezone' %></span>
+                  <span class="value"><%= user.timezone || 'UTC' %></span>
+                </div>
+                <div class="profile-info-item">
+                  <span class="label"><%= t['profile.language'] || 'Preferred Language' %></span>
+                  <span class="value"><%= user.language || 'English' %></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <%- include('partials/scripts') %>
+
+  <script>
+    (function() {
+      // Email toggle visibility
+      const toggle = document.getElementById('email-toggle');
+      const emailDisplay = document.getElementById('email-display');
+      const originalEmail = '<%= user.email || '' %>';
+
+      if (toggle) {
+        toggle.addEventListener('change', function() {
+          if (this.checked) {
+            emailDisplay.textContent = originalEmail || '<%= t["profile.no_email"] || "Not provided" %>';
+            emailDisplay.style.color = 'var(--text-primary)';
+          } else {
+            emailDisplay.textContent = '••••••••';
+            emailDisplay.style.color = 'var(--text-muted)';
+          }
+        });
+        // Initial state
+        if (toggle.checked) {
+          emailDisplay.textContent = originalEmail || '<%= t["profile.no_email"] || "Not provided" %>';
+        } else {
+          emailDisplay.textContent = '••••••••';
+        }
+      }
+
+      // Refresh date formatting
+      if (window.__refreshDates) {
+        setTimeout(window.__refreshDates, 200);
+      } else {
+        document.querySelectorAll('.format-date').forEach(el => {
+          const date = el.getAttribute('data-date') || el.textContent.trim();
+          if (date && window.formatDate) {
+            el.textContent = window.formatDate(date);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

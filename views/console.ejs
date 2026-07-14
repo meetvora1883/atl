@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Console & Logs' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'console' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <div class="container page-content">
+        <h2 style="margin-bottom:20px;">Real-time Console</h2>
+
+        <div class="glass card">
+          <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+            <input id="log-search" type="text" placeholder="Search logs..." style="flex:1; min-width:150px; padding:8px 12px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; color:var(--text-primary);" />
+            <select id="log-level" style="padding:8px 12px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; color:var(--text-primary);">
+              <option value="">All Levels</option>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="error">Error</option>
+              <option value="debug">Debug</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="clearLogs()">Clear</button>
+            <button class="btn btn-primary btn-sm" onclick="downloadLogs()"><i class="bi bi-download"></i> Download</button>
+            <button class="btn btn-primary btn-sm" onclick="loadLogs()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+          </div>
+
+          <div id="logs-container" style="background:rgba(0,0,0,0.4); border-radius:8px; padding:8px; font-family:var(--font-mono); font-size:0.75rem; max-height:500px; overflow-y:auto; color:var(--text-muted); white-space:pre-wrap; word-break:break-all;">
+            <div style="color:var(--accent-cyan);">[INFO] Loading logs...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <style>
+    /* Console page – compact terminal style */
+    .container.page-content {
+      max-width: 100% !important;
+      padding: 12px 16px !important;
+    }
+    .glass.card {
+      padding: 12px !important;
+    }
+    #logs-container {
+      font-size: 0.7rem !important;
+      line-height: 1.4 !important;
+      max-height: 65vh !important;
+    }
+    #logs-container div {
+      padding: 2px 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    #logs-container div:last-child {
+      border-bottom: none;
+    }
+    .log-level-info { color: var(--accent-cyan); }
+    .log-level-warning { color: var(--accent-amber); }
+    .log-level-error { color: var(--danger); }
+    .log-level-debug { color: var(--text-muted); }
+    .log-level-api { color: var(--accent-purple); }
+    .timestamp { color: var(--text-muted); opacity:0.6; margin-right:8px; }
+    @media (max-width: 768px) {
+      #logs-container { max-height: 50vh; font-size:0.65rem !important; }
+    }
+  </style>
+
+  <script>
+    // Ensure apiFetch is defined (already loaded via scripts partial)
+    const CSRF_TOKEN = "<%= csrfToken %>";
+
+    async function loadLogs() {
+      const container = document.getElementById('logs-container');
+      container.innerHTML = '<div style="color:var(--accent-cyan);">[INFO] Fetching logs...</div>';
+
+      try {
+        // Use apiFetch if available, otherwise fallback to fetch with CSRF
+        const fetchFn = typeof apiFetch !== 'undefined' ? apiFetch : window.fetch;
+        const res = await fetchFn('/api/console', {
+          headers: { 'x-csrf-token': CSRF_TOKEN }
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const logs = data.logs || [];
+
+        if (logs.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted);">[INFO] No logs available.</div>';
+          return;
+        }
+
+        // Build log lines
+        let html = '';
+        logs.forEach(log => {
+          const level = log.level || 'info';
+          const message = log.message || JSON.stringify(log);
+          const time = log.created_at ? new Date(log.created_at).toLocaleString() : '';
+          const type = log.type || 'console';
+          let levelClass = 'log-level-' + level;
+          if (type === 'api') levelClass = 'log-level-api';
+          const timestamp = time ? `<span class="timestamp">[${time}]</span>` : '';
+          html += `<div class="${levelClass}">${timestamp}${message}</div>`;
+        });
+
+        container.innerHTML = html;
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+        container.innerHTML = `<div style="color:var(--danger);">[ERROR] Failed to load logs: ${error.message}</div>`;
+      }
+    }
+
+    function clearLogs() {
+      if (confirm('Clear all logs?')) {
+        document.getElementById('logs-container').innerHTML = '<div style="color:var(--accent-cyan);">[INFO] Logs cleared (local view only).</div>';
+        window.showToast('success', 'Logs cleared');
+      }
+    }
+
+    function downloadLogs() {
+      const container = document.getElementById('logs-container');
+      const text = container.innerText;
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `console-logs-${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('log-search').addEventListener('input', function() {
+      const query = this.value.toLowerCase();
+      const items = document.querySelectorAll('#logs-container div');
+      items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(query) ? '' : 'none';
+      });
+    });
+
+    document.getElementById('log-level').addEventListener('change', function() {
+      const level = this.value;
+      const items = document.querySelectorAll('#logs-container div');
+      items.forEach(item => {
+        if (!level) {
+          item.style.display = '';
+          return;
+        }
+        const match = item.className.includes('log-level-' + level);
+        item.style.display = match ? '' : 'none';
+      });
+    });
+
+    // Auto-refresh every 30 seconds if user wants – but we'll keep it manual.
+    // Load on page ready
+    document.addEventListener('DOMContentLoaded', loadLogs);
+  </script>
+</body>
+</html>

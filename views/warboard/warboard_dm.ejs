@@ -1,0 +1,1290 @@
+<!-- ============================================================
+     DISCORD DM SYSTEM – Final (Per‑Player Replacements)
+     ============================================================ -->
+
+<!-- Tabs -->
+<div class="dm-tabs">
+  <button class="dm-tab active" data-tab="templates">Templates</button>
+  <button class="dm-tab" data-tab="history">History</button>
+</div>
+
+<!-- TEMPLATES TAB -->
+<div class="dm-tab-content" id="dmTabTemplates">
+  <!-- Template Management Toolbar -->
+  <div class="dm-toolbar">
+    <select id="dmTemplateSelect" class="dm-template-select">
+      <option value="">-- Select Template --</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" id="dmSaveTemplateBtn"><i class="bi bi-save"></i> Save</button>
+    <button class="btn btn-ghost btn-sm" id="dmSaveAsTemplateBtn"><i class="bi bi-files"></i> Save As</button>
+    <button class="btn btn-ghost btn-sm" id="dmDeleteTemplateBtn"><i class="bi bi-trash3"></i> Delete</button>
+    <button class="btn btn-ghost btn-sm" id="dmSetDefaultBtn"><i class="bi bi-star"></i> Set Default</button>
+    <span class="dm-last-edited">Last edited: <span id="dmLastEdited">Never</span></span>
+  </div>
+
+  <!-- Editor -->
+  <div class="dm-editor-wrap">
+    <textarea id="dmMessageContent" class="dm-message-textarea" placeholder="Write your message here... Use the variable buttons below to insert placeholders."></textarea>
+    <div class="dm-char-counter" id="dmCharCounter">0 / 1500</div>
+  </div>
+
+  <!-- Variables -->
+  <div class="dm-variables-group">
+    <div class="var-group">
+      <span class="var-group-label">Player</span>
+      <button class="var-btn" data-var="{player_name}">{player_name}</button>
+      <button class="var-btn" data-var="{player_username}">{player_username}</button>
+      <button class="var-btn" data-var="{player_discord}">{player_discord}</button>
+      <button class="var-btn" data-var="{player_might}">{player_might}</button>
+    </div>
+    <div class="var-group">
+      <span class="var-group-label">Building</span>
+      <button class="var-btn" data-var="{building_name}">{building_name}</button>
+      <button class="var-btn" data-var="{building_capacity}">{building_capacity}</button>
+      <button class="var-btn" data-var="{building_filled}">{building_filled}</button>
+      <button class="var-btn" data-var="{building_slots_left}">{building_slots_left}</button>
+    </div>
+    <div class="var-group">
+      <span class="var-group-label">Server</span>
+      <button class="var-btn" data-var="{guild_name}">{guild_name}</button>
+      <button class="var-btn" data-var="{server_name}">{server_name}</button>
+      <button class="var-btn" data-var="{officer_name}">{officer_name}</button>
+    </div>
+    <div class="var-group">
+      <span class="var-group-label">Time</span>
+      <button class="var-btn" data-var="{current_date}">{current_date}</button>
+      <button class="var-btn" data-var="{current_time}">{current_time}</button>
+    </div>
+    <div class="var-group">
+      <span class="var-group-label">Formatting</span>
+      <button class="var-btn" data-var="{newline}">{newline}</button>
+    </div>
+  </div>
+
+  <!-- Send Mode -->
+  <div class="dm-send-mode">
+    <label><input type="radio" name="sendMode" value="player" checked> Selected Player</label>
+    <label><input type="radio" name="sendMode" value="building"> Selected Building</label>
+    <label><input type="radio" name="sendMode" value="all"> All Buildings</label>
+  </div>
+
+  <!-- Player Selector -->
+  <div class="dm-player-selector" id="dmPlayerSelector">
+    <div class="dm-player-search-wrap">
+      <i class="bi bi-search"></i>
+      <input type="text" id="dmPlayerSearch" class="dm-player-search" placeholder="Search by name, ID, building, or might..." />
+    </div>
+    <div class="dm-player-list" id="dmPlayerList"></div>
+    <div class="dm-player-info" id="dmPlayerInfo">
+      <div class="dm-player-info-card" id="dmPlayerInfoCard">
+        <div class="player-avatar-wrapper">
+          <img id="dmInfoAvatar" src="" alt="Avatar" />
+        </div>
+        <div class="player-details">
+          <div class="player-name" id="dmInfoName"></div>
+          <div class="player-discord" id="dmInfoDiscord"></div>
+          <div class="player-building" id="dmInfoBuilding"></div>
+          <div class="player-might" id="dmInfoMight"></div>
+          <div class="player-status" id="dmInfoStatus"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Building Selector -->
+  <div class="dm-building-selector" id="dmBuildingSelector">
+    <label>Building</label>
+    <select id="dmBuildingSelect" class="dm-building-dropdown"></select>
+    <div class="dm-building-players">
+      <span class="dm-building-player-count" id="dmBuildingPlayerCount">Players (0)</span>
+      <div id="dmBuildingPlayerList" class="dm-building-player-list"></div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="dm-preview-wrapper" id="dmPreviewWrapper">
+    <div class="dm-preview-header">
+      <span>Preview</span>
+      <span id="dmPreviewRecipient" class="dm-preview-recipient">No recipient</span>
+      <span id="dmPreviewBuilding" class="dm-preview-building"></span>
+    </div>
+    <div class="dm-preview-bubble" id="dmPreviewBubble">
+      <div class="dm-preview-content" id="dmPreviewContent">
+        <div class="dm-preview-empty">Select a player or send mode to preview.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="dm-actions" id="dmActions">
+    <button class="btn btn-primary" id="dmSendBtn"><i class="bi bi-send"></i> Send DM</button>
+    <button class="btn btn-ghost" id="dmTestSendBtn"><i class="bi bi-bug"></i> Send Test DM</button>
+    <button class="btn btn-ghost" id="dmPreviewBtn"><i class="bi bi-eye"></i> Show Preview</button>
+    <button class="btn btn-ghost" id="dmResetBtn"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+    <span class="char-counter" id="dmCharCounter2">0 / 1500</span>
+  </div>
+
+  <!-- Progress Panel -->
+  <div class="dm-progress-panel" id="dmProgressPanel" style="display:none;">
+    <div class="dm-progress-header">
+      <span>Sending Discord Messages</span>
+      <span id="dmProgressETA">Calculating...</span>
+    </div>
+    <div class="dm-progress-bar-wrap">
+      <div class="dm-progress-fill" id="dmProgressFill" style="width:0%;"></div>
+    </div>
+    <div class="dm-progress-stats">
+      <div class="dm-stat-item"><span class="label">Total</span><span class="value" id="dmProgressTotal">0</span></div>
+      <div class="dm-stat-item"><span class="label">Sent</span><span class="value" id="dmProgressSent">0</span></div>
+      <div class="dm-stat-item"><span class="label">Remaining</span><span class="value" id="dmProgressRemaining">0</span></div>
+      <div class="dm-stat-item"><span class="label">Success</span><span class="value" id="dmProgressSuccess">0</span></div>
+      <div class="dm-stat-item"><span class="label">Failed</span><span class="value" id="dmProgressFailed">0</span></div>
+    </div>
+    <div class="dm-progress-current">
+      <span class="label">Current Player</span>
+      <span class="value" id="dmProgressCurrentPlayer">—</span>
+    </div>
+    <div class="dm-progress-failed-list" id="dmProgressFailedList" style="display:none;">
+      <button class="btn btn-ghost btn-sm" id="dmViewFailedBtn">View Failed Players</button>
+      <div id="dmFailedDetails" style="display:none; margin-top:6px; max-height:150px; overflow-y:auto; background:var(--bg-2); padding:6px; border-radius:6px; border:1px solid var(--glass-border);"></div>
+    </div>
+    <div class="dm-progress-actions">
+      <button class="btn btn-danger btn-sm" id="dmCancelSendBtn" style="display:none;">Cancel</button>
+    </div>
+    <div class="dm-progress-complete" id="dmProgressComplete" style="display:none;">
+      <div style="font-weight:700; font-size:1.1rem;">✅ Delivery Complete</div>
+      <div class="dm-progress-stats" style="margin:8px 0;">
+        <span class="stat-item">Total: <strong id="dmCompleteTotal">0</strong></span>
+        <span class="stat-item">Success: <strong id="dmCompleteSuccess">0</strong></span>
+        <span class="stat-item">Failed: <strong id="dmCompleteFailed">0</strong></span>
+        <span class="stat-item">Time: <strong id="dmCompleteTime">0s</strong></span>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="dmCompleteViewFailed">View Failed Players</button>
+      <div id="dmCompleteFailedDetails" style="display:none; margin-top:6px; max-height:150px; overflow-y:auto; background:var(--bg-2); padding:6px; border-radius:6px; border:1px solid var(--glass-border);"></div>
+      <button class="btn btn-primary btn-sm" id="dmCompleteOk" style="margin-top:8px;">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY TAB -->
+<div class="dm-tab-content dm-hidden" id="dmTabHistory">
+  <div class="dm-history-toolbar">
+    <input type="text" id="dmHistorySearch" class="dm-history-search" placeholder="Search history..." />
+    <button class="btn btn-ghost btn-sm" id="dmHistoryRefresh"><i class="bi bi-arrow-clockwise"></i></button>
+  </div>
+  <div class="dm-history-list" id="dmHistoryList">
+    <div class="dm-history-empty">Loading history...</div>
+  </div>
+  <div class="dm-history-pagination" id="dmHistoryPagination"></div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT – Per‑Player Replacements (Final)
+     ============================================================ -->
+<script>
+  (function() {
+    // ----- DOM refs -----
+    const dmTextarea = document.getElementById('dmMessageContent');
+    const dmSelect = document.getElementById('dmTemplateSelect');
+    const dmCharCounter = document.getElementById('dmCharCounter');
+    const dmCharCounter2 = document.getElementById('dmCharCounter2');
+    const dmLastEdited = document.getElementById('dmLastEdited');
+    const dmPreviewWrapper = document.getElementById('dmPreviewWrapper');
+    const dmPreviewContent = document.getElementById('dmPreviewContent');
+    const dmPreviewRecipient = document.getElementById('dmPreviewRecipient');
+    const dmPreviewBuilding = document.getElementById('dmPreviewBuilding');
+    const dmPlayerSearch = document.getElementById('dmPlayerSearch');
+    const dmPlayerList = document.getElementById('dmPlayerList');
+    const dmPlayerInfoCard = document.getElementById('dmPlayerInfoCard');
+    const dmInfoAvatar = document.getElementById('dmInfoAvatar');
+    const dmInfoName = document.getElementById('dmInfoName');
+    const dmInfoDiscord = document.getElementById('dmInfoDiscord');
+    const dmInfoBuilding = document.getElementById('dmInfoBuilding');
+    const dmInfoMight = document.getElementById('dmInfoMight');
+    const dmInfoStatus = document.getElementById('dmInfoStatus');
+    const dmSendBtn = document.getElementById('dmSendBtn');
+    const dmTestSendBtn = document.getElementById('dmTestSendBtn');
+    const dmPreviewBtn = document.getElementById('dmPreviewBtn');
+    const dmResetBtn = document.getElementById('dmResetBtn');
+    const dmBuildingSelect = document.getElementById('dmBuildingSelect');
+    const dmBuildingPlayerList = document.getElementById('dmBuildingPlayerList');
+    const dmBuildingPlayerCount = document.getElementById('dmBuildingPlayerCount');
+    const dmHistoryList = document.getElementById('dmHistoryList');
+    const dmHistoryPagination = document.getElementById('dmHistoryPagination');
+    const dmHistorySearch = document.getElementById('dmHistorySearch');
+    const dmProgressPanel = document.getElementById('dmProgressPanel');
+    const dmProgressFill = document.getElementById('dmProgressFill');
+    const dmProgressTotal = document.getElementById('dmProgressTotal');
+    const dmProgressSent = document.getElementById('dmProgressSent');
+    const dmProgressRemaining = document.getElementById('dmProgressRemaining');
+    const dmProgressSuccess = document.getElementById('dmProgressSuccess');
+    const dmProgressFailed = document.getElementById('dmProgressFailed');
+    const dmProgressCurrentPlayer = document.getElementById('dmProgressCurrentPlayer');
+    const dmProgressETA = document.getElementById('dmProgressETA');
+    const dmCancelSendBtn = document.getElementById('dmCancelSendBtn');
+    const dmProgressComplete = document.getElementById('dmProgressComplete');
+    const dmCompleteTotal = document.getElementById('dmCompleteTotal');
+    const dmCompleteSuccess = document.getElementById('dmCompleteSuccess');
+    const dmCompleteFailed = document.getElementById('dmCompleteFailed');
+    const dmCompleteTime = document.getElementById('dmCompleteTime');
+    const dmCompleteViewFailed = document.getElementById('dmCompleteViewFailed');
+    const dmCompleteFailedDetails = document.getElementById('dmCompleteFailedDetails');
+    const dmCompleteOk = document.getElementById('dmCompleteOk');
+    const dmViewFailedBtn = document.getElementById('dmViewFailedBtn');
+    const dmFailedDetails = document.getElementById('dmFailedDetails');
+    const dmProgressFailedList = document.getElementById('dmProgressFailedList');
+    const dmActions = document.getElementById('dmActions');
+
+    // ----- Constants -----
+    const MAX_CHARS = 1500;
+
+    // ----- State -----
+    let currentTemplateId = null;
+    let allTemplates = [];
+    let previewCache = {};
+    let lastSavedContent = '';
+    let autoSaveTimer = null;
+    let isSending = false;
+    let sendCancelled = false;
+    let selectedPlayer = null;
+    let allPlayers = [];
+    let buildingPlayersMap = {};
+    let currentSendMode = 'player';
+    let currentHistoryPage = 1;
+    let totalHistoryPages = 1;
+    let previewVisible = false;
+    let searchDebounceTimer = null;
+    let currentUser = window.currentUser || {};
+    let currentUserDiscordId = currentUser.discord_id || null;
+    let failedDetails = [];
+    let sendStartTime = null;
+
+    // ----- Helper: escape HTML -----
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '';
+      const str = String(text);
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return str.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // ----- Helper: show toast -----
+    function showToast(type, title, message) {
+      if (window.showToast) window.showToast(type, title, message);
+      else console.log(`[${type}] ${title}: ${message}`);
+    }
+
+    // ----- Helper: set loading state -----
+    function setLoading(btn, text) {
+      if (!btn) return function(){};
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('btn-loading');
+      btn.innerHTML = `<span class="spinner-border-sm"></span> ${text}`;
+      return function restore() {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+        btn.innerHTML = original;
+      };
+    }
+
+    // ----- Tabs -----
+    document.querySelectorAll('.dm-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.dm-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        const target = this.dataset.tab;
+        document.querySelectorAll('.dm-tab-content').forEach(c => c.classList.add('dm-hidden'));
+        document.getElementById('dmTab' + target.charAt(0).toUpperCase() + target.slice(1)).classList.remove('dm-hidden');
+        if (target === 'history') loadHistory();
+      });
+    });
+
+    // ============================================================
+    // TEMPLATES (unchanged)
+    // ============================================================
+    async function loadTemplates() {
+      try {
+        const res = await fetch('/api/warboard/dm-templates', {
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        if (res.ok) {
+          allTemplates = await res.json();
+          const currentVal = dmSelect.value;
+          dmSelect.innerHTML = '<option value="">-- Select Template --</option>';
+          let defaultId = null;
+          allTemplates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name + (t.is_default ? ' ★' : '');
+            dmSelect.appendChild(opt);
+            if (t.is_default) defaultId = t.id;
+          });
+          if (currentVal && allTemplates.some(t => t.id == currentVal)) {
+            dmSelect.value = currentVal;
+          } else if (defaultId) {
+            dmSelect.value = defaultId;
+          }
+          if (dmSelect.value) {
+            const selected = allTemplates.find(t => t.id == dmSelect.value);
+            if (selected) {
+              dmTextarea.value = selected.content;
+              currentTemplateId = selected.id;
+              updateCharCounter();
+              lastSavedContent = selected.content;
+              dmLastEdited.textContent = selected.updated_at ? new Date(selected.updated_at).toLocaleString() : 'Never';
+            }
+          } else {
+            restoreDraft();
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load templates:', e);
+      }
+    }
+
+    dmSelect.addEventListener('change', function() {
+      const id = this.value;
+      if (!id) {
+        dmTextarea.value = '';
+        currentTemplateId = null;
+        updateCharCounter();
+        return;
+      }
+      const found = allTemplates.find(t => t.id == id);
+      if (found) {
+        dmTextarea.value = found.content;
+        currentTemplateId = found.id;
+        updateCharCounter();
+        lastSavedContent = found.content;
+        dmLastEdited.textContent = found.updated_at ? new Date(found.updated_at).toLocaleString() : 'Never';
+        localStorage.removeItem('warboard_dm_draft');
+      }
+    });
+
+    async function saveTemplate(asNew = false) {
+      const content = dmTextarea.value.trim();
+      if (!content) { showToast('warning', 'Message content is empty'); return; }
+      const defaultName = asNew ? '' : (dmSelect.options[dmSelect.selectedIndex]?.text || '');
+      const name = prompt('Enter template name:', defaultName);
+      if (!name) return;
+      const isDefault = confirm('Set as default template?');
+      const id = asNew ? null : currentTemplateId;
+      const payload = { name, content, is_default: isDefault };
+      if (id) payload.id = id;
+      try {
+        const restore = setLoading(document.getElementById('dmSaveTemplateBtn'), 'Saving');
+        const res = await fetch('/api/warboard/dm-templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify(payload)
+        });
+        restore();
+        if (res.ok) {
+          showToast('success', 'Template saved');
+          await loadTemplates();
+          const data = await res.json();
+          if (data.id) {
+            dmSelect.value = data.id;
+            currentTemplateId = data.id;
+          }
+        } else {
+          const err = await res.json();
+          showToast('error', 'Failed to save: ' + err.error);
+        }
+      } catch (e) {
+        showToast('error', 'Network error: ' + e.message);
+      }
+    }
+
+    async function deleteTemplate() {
+      if (!currentTemplateId) { showToast('warning', 'No template selected'); return; }
+      const confirmed = confirm('Are you sure you want to delete this template?');
+      if (!confirmed) return;
+      try {
+        const restore = setLoading(document.getElementById('dmDeleteTemplateBtn'), 'Deleting');
+        const res = await fetch('/api/warboard/dm-templates/' + currentTemplateId, {
+          method: 'DELETE',
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        restore();
+        if (res.ok) {
+          showToast('success', 'Template deleted');
+          await loadTemplates();
+          dmTextarea.value = '';
+          currentTemplateId = null;
+          updateCharCounter();
+        } else {
+          const err = await res.json();
+          showToast('error', 'Failed to delete: ' + err.error);
+        }
+      } catch (e) {
+        showToast('error', 'Network error: ' + e.message);
+      }
+    }
+
+    async function setDefault() {
+      if (!currentTemplateId) { showToast('warning', 'No template selected'); return; }
+      const confirmed = confirm('Set this template as the default?');
+      if (!confirmed) return;
+      try {
+        const res = await fetch('/api/warboard/dm-templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify({ id: currentTemplateId, is_default: true })
+        });
+        if (res.ok) {
+          showToast('success', 'Default template updated');
+          await loadTemplates();
+          dmSelect.value = currentTemplateId;
+        } else {
+          const err = await res.json();
+          showToast('error', 'Failed: ' + err.error);
+        }
+      } catch (e) {
+        showToast('error', 'Network error');
+      }
+    }
+
+    // Auto-save
+    function autoSave() {
+      const content = dmTextarea.value;
+      if (content !== lastSavedContent && content.trim() !== '') {
+        localStorage.setItem('warboard_dm_draft', content);
+        lastSavedContent = content;
+        dmLastEdited.textContent = new Date().toLocaleString();
+      }
+    }
+    function restoreDraft() {
+      const draft = localStorage.getItem('warboard_dm_draft');
+      if (draft && !dmTextarea.value) {
+        dmTextarea.value = draft;
+        updateCharCounter();
+        lastSavedContent = draft;
+      }
+    }
+
+    function updateCharCounter() {
+      const len = dmTextarea.value.length;
+      const text = len + ' / ' + MAX_CHARS;
+      dmCharCounter.textContent = text;
+      dmCharCounter2.textContent = text;
+      dmCharCounter.className = 'dm-char-counter';
+      if (len >= MAX_CHARS) dmCharCounter.classList.add('danger');
+      else if (len >= 1350) dmCharCounter.classList.add('warning');
+    }
+
+    function enforceCharLimit() {
+      if (dmTextarea.value.length > MAX_CHARS) {
+        dmTextarea.value = dmTextarea.value.slice(0, MAX_CHARS);
+        updateCharCounter();
+      }
+    }
+
+    // ============================================================
+    // LOAD PLAYERS
+    // ============================================================
+    async function loadPlayers() {
+      try {
+        const res = await fetch('/api/warboard/dm-players-list', {
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        if (res.ok) {
+          const players = await res.json();
+          allPlayers = players;
+          buildingPlayersMap = {};
+          players.forEach(p => {
+            const bId = p.building_id || 'unassigned';
+            if (!buildingPlayersMap[bId]) buildingPlayersMap[bId] = [];
+            buildingPlayersMap[bId].push({ ...p, buildingId: bId });
+          });
+          populateBuildingDropdown();
+          renderPlayerList(allPlayers);
+
+          if (currentUserDiscordId) {
+            const currentUserPlayer = allPlayers.find(p => p.discordId === currentUserDiscordId);
+            if (currentUserPlayer && !selectedPlayer) {
+              selectedPlayer = currentUserPlayer;
+              renderPlayerList(allPlayers);
+              updatePlayerInfoCard(selectedPlayer);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load players:', e);
+      }
+    }
+
+    function populateBuildingDropdown() {
+      const currentVal = dmBuildingSelect.value;
+      dmBuildingSelect.innerHTML = '<option value="">-- Select a building --</option>';
+      const buildings = window.buildingsData || [];
+      if (buildings.length === 0) {
+        dmBuildingSelect.innerHTML = '<option value="">No buildings loaded</option>';
+        return;
+      }
+      buildings.forEach(b => {
+        const players = buildingPlayersMap[b.id] || [];
+        const filled = players.length;
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = b.name + '  (' + filled + '/' + b.capacity + ')';
+        dmBuildingSelect.appendChild(opt);
+      });
+      if (currentVal && dmBuildingSelect.querySelector(`option[value="${currentVal}"]`)) {
+        dmBuildingSelect.value = currentVal;
+      }
+      if (dmBuildingSelect.value) {
+        dmBuildingSelect.dispatchEvent(new Event('change'));
+      }
+    }
+
+    function renderPlayerList(players) {
+      dmPlayerList.innerHTML = '';
+      if (players.length === 0) {
+        dmPlayerList.innerHTML = `
+          <div class="dm-list-empty">No players found.</div>
+          <div class="dm-list-hint" style="font-size:0.8rem; color:var(--text-muted); padding:4px 12px 8px;">Try another name, Discord ID, Building, or Might.</div>
+        `;
+        return;
+      }
+      players.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'player-item';
+        div.dataset.id = p.discordId;
+        if (selectedPlayer && selectedPlayer.discordId === p.discordId) {
+          div.classList.add('selected');
+        }
+        const avatar = p.avatar || `https://cdn.discordapp.com/embed/avatars/${Math.floor(Math.random()*6)}.png`;
+        div.innerHTML = `
+          <img src="${escapeHtml(avatar)}" alt="Avatar" />
+          <div class="pinfo">
+            <div class="pname">${escapeHtml(p.name)}</div>
+            <div class="pdetails">${escapeHtml(p.building_name || 'Unassigned')} • ${escapeHtml(p.might || 'N/A')} Might</div>
+          </div>
+        `;
+        div.addEventListener('click', () => selectPlayer(p));
+        dmPlayerList.appendChild(div);
+      });
+    }
+
+    dmPlayerSearch.addEventListener('input', function() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        const query = this.value.trim();
+        if (!query) {
+          renderPlayerList(allPlayers);
+          return;
+        }
+        const lower = query.toLowerCase();
+        const filtered = allPlayers.filter(p => {
+          const name = (p.name || '').toLowerCase();
+          const id = (p.discordId || '').toLowerCase();
+          const building = (p.building_name || '').toLowerCase();
+          const might = (p.might || '').toLowerCase();
+          return name.includes(lower) || id.includes(lower) || building.includes(lower) || might.includes(lower);
+        });
+        renderPlayerList(filtered);
+      }, 250);
+    });
+
+    function selectPlayer(player) {
+      selectedPlayer = player;
+      renderPlayerList(allPlayers);
+      updatePlayerInfoCard(player);
+      if (previewVisible) buildPreview(player.discordId);
+    }
+
+    function updatePlayerInfoCard(player) {
+      dmInfoAvatar.src = player.avatar || `https://cdn.discordapp.com/embed/avatars/${Math.floor(Math.random()*6)}.png`;
+      dmInfoName.textContent = player.name;
+      dmInfoDiscord.textContent = 'Discord: @' + player.name;
+      dmInfoBuilding.textContent = 'Building: ' + (player.building_name || 'Unassigned');
+      dmInfoMight.textContent = 'Might: ' + (player.might || 'N/A');
+      dmInfoStatus.textContent = player.building_name ? '✅ Assigned' : '❌ Not assigned';
+      dmInfoStatus.style.color = player.building_name ? 'var(--success)' : 'var(--danger)';
+      dmPlayerInfoCard.classList.add('visible');
+      dmPlayerSearch.value = player.name;
+    }
+
+    // ============================================================
+    // BUILDING SELECTOR
+    // ============================================================
+    dmBuildingSelect.addEventListener('change', function() {
+      const buildingId = this.value;
+      if (!buildingId) {
+        dmBuildingPlayerList.innerHTML = '';
+        dmBuildingPlayerCount.textContent = 'Players (0)';
+        return;
+      }
+      const players = buildingPlayersMap[buildingId] || [];
+      dmBuildingPlayerCount.textContent = 'Players (' + players.length + ')';
+      if (players.length === 0) {
+        dmBuildingPlayerList.innerHTML = '<div class="dm-list-empty">No players with Discord IDs in this building.</div>';
+        return;
+      }
+      dmBuildingPlayerList.innerHTML = players.map(p => `
+        <div class="player-row">
+          <img src="${escapeHtml(p.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png')}" />
+          <span class="pname">${escapeHtml(p.name)}</span>
+          <span class="pdetails">${escapeHtml(p.might || 'N/A')} Might</span>
+        </div>
+      `).join('');
+      if (currentSendMode === 'building' && previewVisible) {
+        refreshPreviewForCurrentMode();
+      }
+    });
+
+    // ============================================================
+    // SEND MODE SWITCHING
+    // ============================================================
+    document.querySelectorAll('input[name="sendMode"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const mode = this.value;
+        currentSendMode = mode;
+        document.getElementById('dmPlayerSelector').style.display = mode === 'player' ? 'flex' : 'none';
+        document.getElementById('dmBuildingSelector').style.display = mode === 'building' ? 'block' : 'none';
+        if (mode === 'building' && dmBuildingSelect.value) {
+          dmBuildingSelect.dispatchEvent(new Event('change'));
+        }
+        if (previewVisible) {
+          refreshPreviewForCurrentMode();
+        }
+      });
+    });
+
+    // ============================================================
+    // PREVIEW (unchanged)
+    // ============================================================
+    async function buildPreview(discordId) {
+      if (!discordId) {
+        dmPreviewContent.innerHTML = '<div class="dm-preview-empty">Select a player to preview.</div>';
+        dmPreviewRecipient.textContent = 'No recipient';
+        dmPreviewBuilding.textContent = '';
+        return;
+      }
+      const currentContent = dmTextarea.value;
+      if (previewCache._lastContent !== currentContent) {
+        previewCache = {};
+        previewCache._lastContent = currentContent;
+      }
+      if (previewCache[discordId]) {
+        renderPreview(previewCache[discordId]);
+        return;
+      }
+      try {
+        const res = await fetch('/api/warboard/dm-preview/' + discordId, {
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        if (!res.ok) throw new Error('Failed to fetch preview data');
+        const data = await res.json();
+        previewCache[discordId] = data;
+        renderPreview(data);
+      } catch (e) {
+        dmPreviewContent.innerHTML = '<div class="dm-preview-error">Failed to load preview: ' + escapeHtml(e.message) + '</div>';
+      }
+    }
+
+    function renderPreview(data) {
+      const template = dmTextarea.value;
+      if (!template || typeof template !== 'string') {
+        dmPreviewContent.innerHTML = '<div class="dm-preview-empty">Write a message to preview.</div>';
+        dmPreviewRecipient.textContent = 'No template';
+        dmPreviewBuilding.textContent = '';
+        return;
+      }
+
+      let rendered = escapeHtml(template);
+      for (const [key, value] of Object.entries(data)) {
+        const placeholder = '{' + key + '}';
+        const safeValue = escapeHtml(value !== undefined && value !== null ? String(value) : '');
+        rendered = rendered.replace(new RegExp(placeholder, 'g'), safeValue);
+      }
+      rendered = rendered.replace(/\{newline\}/g, '\n');
+      rendered = rendered
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/@([^\s]+)/g, '<span class="mention">@$1</span>');
+
+      dmPreviewContent.innerHTML = rendered;
+      dmPreviewRecipient.textContent = data.player_name || 'Unknown';
+      dmPreviewBuilding.textContent = data.building_name ? '🏰 ' + data.building_name : '';
+    }
+
+    function getPreviewPlayer() {
+      if (currentSendMode === 'player') {
+        if (selectedPlayer) return selectedPlayer;
+        if (currentUserDiscordId) {
+          const user = allPlayers.find(p => p.discordId === currentUserDiscordId);
+          if (user) return user;
+        }
+        return allPlayers.length > 0 ? allPlayers[0] : null;
+      } else if (currentSendMode === 'building') {
+        const buildingId = dmBuildingSelect.value;
+        if (!buildingId) return null;
+        let players = buildingPlayersMap[buildingId] || [];
+        if (currentUserDiscordId) {
+          const user = players.find(p => p.discordId === currentUserDiscordId);
+          if (user) return user;
+        }
+        return players.length > 0 ? players[0] : null;
+      } else if (currentSendMode === 'all') {
+        if (currentUserDiscordId) {
+          const user = allPlayers.find(p => p.discordId === currentUserDiscordId);
+          if (user) return user;
+        }
+        return allPlayers.length > 0 ? allPlayers[0] : null;
+      }
+      return null;
+    }
+
+    function refreshPreviewForCurrentMode() {
+      const player = getPreviewPlayer();
+      if (player) {
+        buildPreview(player.discordId);
+      } else {
+        dmPreviewContent.innerHTML = '<div class="dm-preview-empty">No player available for preview in this mode.</div>';
+        dmPreviewRecipient.textContent = 'No recipient';
+        dmPreviewBuilding.textContent = '';
+      }
+    }
+
+    dmPreviewBtn.addEventListener('click', function() {
+      previewVisible = !previewVisible;
+      if (previewVisible) {
+        dmPreviewWrapper.style.display = 'block';
+        this.innerHTML = '<i class="bi bi-eye-slash"></i> Hide Preview';
+        refreshPreviewForCurrentMode();
+      } else {
+        dmPreviewWrapper.style.display = 'none';
+        this.innerHTML = '<i class="bi bi-eye"></i> Show Preview';
+      }
+    });
+
+    dmResetBtn.addEventListener('click', async function() {
+      if (dmTextarea.value) {
+        const confirmed = confirm('Are you sure you want to discard the current message?');
+        if (!confirmed) return;
+      }
+      dmTextarea.value = '';
+      updateCharCounter();
+      lastSavedContent = '';
+      localStorage.removeItem('warboard_dm_draft');
+      dmPreviewWrapper.style.display = 'none';
+      previewVisible = false;
+      dmPreviewBtn.innerHTML = '<i class="bi bi-eye"></i> Show Preview';
+      dmSelect.value = '';
+      currentTemplateId = null;
+      dmLastEdited.textContent = 'Never';
+      previewCache = {};
+    });
+
+    dmTextarea.addEventListener('input', function() {
+      enforceCharLimit();
+      updateCharCounter();
+      previewCache = {};
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(autoSave, 2000);
+      if (previewVisible) {
+        refreshPreviewForCurrentMode();
+      }
+    });
+
+    // ============================================================
+    // DUPLICATE PROTECTION (mock)
+    // ============================================================
+    async function checkDuplicates(recipients, templateContent) {
+      return { duplicates: [], hasDuplicates: false };
+    }
+
+    // ============================================================
+    // Build per‑player replacement data
+    // ============================================================
+    function buildPlayerData(player, buildingId, buildingData) {
+      const buildings = window.buildingsData || [];
+      const building = buildingData || buildings.find(b => b.id === (buildingId || player.building_id));
+      const filled = building ? (buildingPlayersMap[building.id] || []).length : 0;
+      const capacity = building ? building.capacity : 0;
+      const slotsLeft = capacity - filled;
+
+      return {
+        player_name: player.name || 'Unknown',
+        player_username: player.username || player.name || 'unknown',
+        player_discord: `<@${player.discordId}>`,
+        player_might: player.might || 'N/A',
+        building_name: building ? building.name : (player.building_name || 'Not assigned'),
+        building_capacity: capacity,
+        building_filled: filled,
+        building_slots_left: slotsLeft >= 0 ? slotsLeft : 0,
+        guild_name: window.guildName || 'HyperCity',
+        server_name: window.serverName || 'HyperCity Dashboard',
+        officer_name: currentUser.username || 'Officer',
+        current_date: new Date().toLocaleDateString(),
+        current_time: new Date().toLocaleTimeString(),
+        newline: '\n'
+      };
+    }
+
+    // ============================================================
+    // SEND DM
+    // ============================================================
+    async function sendDm(testMode = false) {
+      if (isSending) {
+        showToast('warning', 'Already sending...');
+        return;
+      }
+      const content = dmTextarea.value.trim();
+      if (!content) {
+        showToast('warning', 'Message content is empty');
+        return;
+      }
+
+      let recipients = [];
+      let mode = currentSendMode;
+      let buildingId = null;
+
+      if (testMode) {
+        if (!currentUserDiscordId) {
+          showToast('error', 'Your Discord ID not found. Please login again.');
+          return;
+        }
+        const userPlayer = allPlayers.find(p => p.discordId === currentUserDiscordId);
+        if (userPlayer) {
+          recipients = [userPlayer];
+          buildingId = userPlayer.building_id || null;
+        } else {
+          recipients = [{ discordId: currentUserDiscordId, name: currentUser.username || 'You', building_id: null, might: 'N/A' }];
+        }
+        mode = 'test';
+      } else {
+        if (mode === 'player') {
+          if (!selectedPlayer) {
+            showToast('warning', 'Please select a player');
+            return;
+          }
+          recipients = [selectedPlayer];
+          buildingId = selectedPlayer.building_id || null;
+        } else if (mode === 'building') {
+          buildingId = dmBuildingSelect.value;
+          if (!buildingId) {
+            showToast('warning', 'Please select a building');
+            return;
+          }
+          const players = buildingPlayersMap[buildingId] || [];
+          if (players.length === 0) {
+            showToast('warning', 'No players in this building with Discord IDs');
+            return;
+          }
+          recipients = players;
+        } else if (mode === 'all') {
+          recipients = allPlayers;
+          buildingId = null;
+        } else {
+          showToast('error', 'Unknown send mode');
+          return;
+        }
+      }
+
+      if (recipients.length === 0) {
+        showToast('warning', 'No recipients selected');
+        return;
+      }
+
+      // Duplicate protection (only normal sends)
+      let filteredRecipients = recipients;
+      if (!testMode) {
+        const dupResult = await checkDuplicates(recipients, content);
+        if (dupResult.hasDuplicates) {
+          const duplicateCount = dupResult.duplicates.length;
+          const skip = confirm(
+            `⚠ Duplicate Detection\n\n${duplicateCount} players already received this template within the last 24 hours.\n\nClick OK to SKIP duplicate recipients (recommended).\nClick Cancel to send to everyone anyway.`
+          );
+          if (skip) {
+            const dupIds = new Set(dupResult.duplicates.map(p => p.discordId));
+            filteredRecipients = recipients.filter(p => !dupIds.has(p.discordId));
+            if (filteredRecipients.length === 0) {
+              showToast('warning', 'All recipients are duplicates. Sending cancelled.');
+              return;
+            }
+            showToast('info', `Skipped ${duplicateCount} duplicate recipients. Sending to ${filteredRecipients.length} players.`);
+          } else {
+            showToast('info', `Sending to all ${recipients.length} players (including duplicates).`);
+          }
+        }
+      }
+
+      const finalRecipients = filteredRecipients;
+      const count = finalRecipients.length;
+      if (!testMode && count === 0) {
+        showToast('warning', 'No recipients after filtering.');
+        return;
+      }
+
+      const templateName = dmSelect.options[dmSelect.selectedIndex]?.text || 'Untitled';
+      let confirmMsg = testMode ? '🧪 Send TEST DM to yourself?' : `Send DM to ${count} player(s)?`;
+      confirmMsg += `\n\nMode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}\n`;
+      const samplePlayer = finalRecipients[0];
+      const sampleBuilding = window.buildingsData.find(b => b.id === (buildingId || samplePlayer.building_id));
+      confirmMsg += `Building: ${sampleBuilding ? sampleBuilding.name : (samplePlayer.building_name || 'Unknown')}\n`;
+      confirmMsg += `Template: ${templateName}\n`;
+      if (!testMode) confirmMsg += `Recipients: ${count} players\n\n`;
+      confirmMsg += `Message preview:\n${content}`;
+
+      const confirmed = confirm(confirmMsg);
+      if (!confirmed) return;
+
+      // Start sending
+      await performSend(finalRecipients, testMode, buildingId, content);
+    }
+
+    // ============================================================
+    // PERFORM SEND (with per‑player replacements)
+    // ============================================================
+    async function performSend(recipients, testMode, buildingId, content) {
+      isSending = true;
+      sendCancelled = false;
+      sendStartTime = Date.now();
+      failedDetails = [];
+
+      dmActions.style.display = 'none';
+      dmProgressPanel.style.display = 'block';
+      dmProgressComplete.style.display = 'none';
+      dmProgressFailedList.style.display = 'none';
+      dmCancelSendBtn.style.display = 'inline-block';
+      dmCancelSendBtn.disabled = false;
+      dmCancelSendBtn.textContent = 'Cancel';
+
+      dmSendBtn.disabled = true;
+      dmTestSendBtn.disabled = true;
+      dmSelect.disabled = true;
+      dmPlayerSearch.disabled = true;
+      dmBuildingSelect.disabled = true;
+
+      const total = recipients.length;
+      let sent = 0, success = 0, failed = 0;
+      dmProgressTotal.textContent = total;
+      dmProgressSent.textContent = '0';
+      dmProgressRemaining.textContent = total;
+      dmProgressSuccess.textContent = '0';
+      dmProgressFailed.textContent = '0';
+      dmProgressFill.style.width = '0%';
+      dmProgressCurrentPlayer.textContent = '—';
+      dmProgressETA.textContent = 'Calculating...';
+
+      let buildingData = null;
+      if (buildingId) {
+        buildingData = window.buildingsData.find(b => b.id === buildingId);
+      }
+
+      const batchSize = 5;
+      const delayMs = 2000;
+      let startTime = Date.now();
+
+      dmCancelSendBtn.onclick = function() {
+        if (confirm('Cancel sending? This will stop the process.')) {
+          sendCancelled = true;
+          dmCancelSendBtn.disabled = true;
+          dmCancelSendBtn.textContent = 'Cancelling...';
+        }
+      };
+
+      function updateProgress() {
+        const remaining = total - sent;
+        dmProgressSent.textContent = sent;
+        dmProgressRemaining.textContent = remaining;
+        dmProgressSuccess.textContent = success;
+        dmProgressFailed.textContent = failed;
+        const progress = total > 0 ? (sent / total) * 100 : 0;
+        dmProgressFill.style.width = Math.min(progress, 100) + '%';
+        dmProgressCurrentPlayer.textContent = sent > 0 ? (recipients[sent-1]?.name || '—') : '—';
+
+        if (sent > 0) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const rate = sent / elapsed;
+          const remainingSecs = rate > 0 ? (remaining / rate) : 0;
+          if (remainingSecs > 0) {
+            const mins = Math.floor(remainingSecs / 60);
+            const secs = Math.floor(remainingSecs % 60);
+            dmProgressETA.textContent = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+          } else {
+            dmProgressETA.textContent = 'Almost done...';
+          }
+        }
+      }
+
+      function replaceVariables(template, player) {
+        const data = buildPlayerData(player, buildingId, buildingData);
+        let msg = template;
+        for (const [key, value] of Object.entries(data)) {
+          const placeholder = '{' + key + '}';
+          msg = msg.replace(new RegExp(placeholder, 'g'), value);
+        }
+        return msg;
+      }
+
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        if (sendCancelled) break;
+        const batch = recipients.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (player) => {
+          if (sendCancelled) return;
+          const playerMsg = replaceVariables(content, player);
+
+          const payload = {
+            mode: testMode ? 'test' : currentSendMode,
+            recipientIds: [player.discordId],
+            buildingId: (currentSendMode === 'building' ? buildingId : null),
+            allBuildings: (currentSendMode === 'all'),
+            templateContent: playerMsg,
+            testMode: testMode
+          };
+          try {
+            const res = await fetch('/api/warboard/dm-send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.sent > 0) {
+              success++;
+            } else {
+              failed++;
+              failedDetails.push({ player: player.name, reason: data.error || 'Unknown error' });
+            }
+          } catch (err) {
+            failed++;
+            failedDetails.push({ player: player.name, reason: err.message || 'Network error' });
+          }
+          sent++;
+          updateProgress();
+        }));
+        if (i + batchSize < recipients.length && !sendCancelled) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+
+      const endTime = Date.now();
+      const timeTaken = ((endTime - sendStartTime) / 1000);
+      const minutes = Math.floor(timeTaken / 60);
+      const seconds = Math.floor(timeTaken % 60);
+      const timeStr = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+
+      dmCancelSendBtn.style.display = 'none';
+      isSending = false;
+
+      dmProgressComplete.style.display = 'block';
+      dmCompleteTotal.textContent = recipients.length;
+      dmCompleteSuccess.textContent = success;
+      dmCompleteFailed.textContent = failed;
+      dmCompleteTime.textContent = timeStr;
+
+      if (failed > 0) {
+        dmProgressFailedList.style.display = 'block';
+        dmViewFailedBtn.onclick = function() {
+          const detailsEl = dmFailedDetails;
+          if (detailsEl.style.display === 'none') {
+            detailsEl.style.display = 'block';
+            detailsEl.innerHTML = failedDetails.map(f =>
+              `<div style="padding:4px 0; border-bottom:1px solid var(--glass-border);"><strong>${escapeHtml(f.player)}</strong><br><span style="font-size:0.8rem; color:var(--text-muted);">Reason: ${escapeHtml(f.reason)}</span></div>`
+            ).join('');
+          } else {
+            detailsEl.style.display = 'none';
+          }
+        };
+        dmCompleteViewFailed.onclick = function() {
+          const detailsEl = dmCompleteFailedDetails;
+          if (detailsEl.style.display === 'none') {
+            detailsEl.style.display = 'block';
+            detailsEl.innerHTML = failedDetails.map(f =>
+              `<div style="padding:4px 0; border-bottom:1px solid var(--glass-border);"><strong>${escapeHtml(f.player)}</strong><br><span style="font-size:0.8rem; color:var(--text-muted);">Reason: ${escapeHtml(f.reason)}</span></div>`
+            ).join('');
+          } else {
+            detailsEl.style.display = 'none';
+          }
+        };
+      } else {
+        dmProgressFailedList.style.display = 'none';
+      }
+
+      dmSendBtn.disabled = false;
+      dmTestSendBtn.disabled = false;
+      dmSelect.disabled = false;
+      dmPlayerSearch.disabled = false;
+      dmBuildingSelect.disabled = false;
+
+      if (testMode) {
+        if (success > 0) {
+          showToast('success', '✅ Test DM sent successfully.');
+        } else {
+          const errMsg = failedDetails.length > 0 ? failedDetails[0].reason : 'Unknown error';
+          showToast('error', `❌ Unable to send test DM.\nReason: ${errMsg}`);
+        }
+      } else {
+        showToast(success > 0 ? 'success' : 'error', `Sent ${success} DMs (${failed} failed)`);
+      }
+    }
+
+    // ============================================================
+    // SEND BUTTONS
+    // ============================================================
+    dmSendBtn.addEventListener('click', function() { sendDm(false); });
+    dmTestSendBtn.addEventListener('click', function() { sendDm(true); });
+
+    // ============================================================
+    // Progress panel "OK" button – restore actions
+    // ============================================================
+    dmCompleteOk.addEventListener('click', function() {
+      dmProgressPanel.style.display = 'none';
+      dmProgressComplete.style.display = 'none';
+      dmProgressFailedList.style.display = 'none';
+      dmFailedDetails.style.display = 'none';
+      dmCompleteFailedDetails.style.display = 'none';
+      dmActions.style.display = 'flex';
+      dmProgressFill.style.width = '0%';
+      dmProgressTotal.textContent = '0';
+      dmProgressSent.textContent = '0';
+      dmProgressRemaining.textContent = '0';
+      dmProgressSuccess.textContent = '0';
+      dmProgressFailed.textContent = '0';
+      dmProgressCurrentPlayer.textContent = '—';
+      dmProgressETA.textContent = 'Calculating...';
+    });
+
+    // ============================================================
+    // HISTORY (unchanged)
+    // ============================================================
+    async function loadHistory(page = 1) {
+      try {
+        const search = dmHistorySearch.value.trim();
+        const res = await fetch(`/api/warboard/dm-history?page=${page}&search=${encodeURIComponent(search)}`, {
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderHistory(data.items, data.page, data.pages);
+          currentHistoryPage = data.page;
+          totalHistoryPages = data.pages;
+        }
+      } catch (e) {
+        dmHistoryList.innerHTML = '<div class="dm-history-empty">Failed to load history.</div>';
+      }
+    }
+
+    function renderHistory(items, page, pages) {
+      if (items.length === 0) {
+        dmHistoryList.innerHTML = '<div class="dm-history-empty">No history found.</div>';
+        dmHistoryPagination.innerHTML = '';
+        return;
+      }
+      dmHistoryList.innerHTML = items.map(item => `
+        <div class="dm-history-item">
+          <div class="h-left">
+            <div class="h-title">${escapeHtml(item.template_name || 'Bulk DM')}</div>
+            <div class="h-details">${item.recipients} recipients • ${escapeHtml(item.mode)}</div>
+          </div>
+          <div class="h-right">
+            <div class="h-stats">
+              <span class="success">${item.success}</span> / <span class="failed">${item.failed}</span>
+            </div>
+            <div class="h-time">${new Date(item.created_at).toLocaleString()}</div>
+          </div>
+        </div>
+      `).join('');
+
+      let pagHtml = '';
+      if (pages > 1) {
+        const prev = page > 1 ? page - 1 : 1;
+        const next = page < pages ? page + 1 : pages;
+        pagHtml += `<button class="page-btn" data-page="${prev}">‹</button>`;
+        const pageSet = new Set();
+        for (let i = 1; i <= Math.min(3, pages); i++) pageSet.add(i);
+        for (let i = Math.max(1, page - 1); i <= Math.min(pages, page + 1); i++) pageSet.add(i);
+        for (let i = Math.max(1, pages - 2); i <= pages; i++) pageSet.add(i);
+        const sorted = Array.from(pageSet).sort((a,b) => a - b);
+        let last = 0;
+        sorted.forEach(p => {
+          if (p - last > 1) pagHtml += '<span class="page-ellipsis">…</span>';
+          pagHtml += `<button class="page-btn ${p === page ? 'active' : ''}" data-page="${p}">${p}</button>`;
+          last = p;
+        });
+        pagHtml += `<button class="page-btn" data-page="${next}">›</button>`;
+      }
+      dmHistoryPagination.innerHTML = pagHtml;
+      dmHistoryPagination.querySelectorAll('.page-btn').forEach(btn => {
+        btn.addEventListener('click', () => loadHistory(parseInt(btn.dataset.page)));
+      });
+    }
+
+    dmHistorySearch.addEventListener('input', () => loadHistory(1));
+    document.getElementById('dmHistoryRefresh').addEventListener('click', () => loadHistory(currentHistoryPage));
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function insertVariable(varText) {
+      const start = dmTextarea.selectionStart;
+      const end = dmTextarea.selectionEnd;
+      const text = dmTextarea.value;
+      const before = text.substring(0, start);
+      const after = text.substring(end);
+      dmTextarea.value = before + varText + after;
+      const newCursor = start + varText.length;
+      dmTextarea.selectionStart = dmTextarea.selectionEnd = newCursor;
+      dmTextarea.focus();
+      updateCharCounter();
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(autoSave, 2000);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    function initDm() {
+      loadTemplates();
+      loadPlayers();
+      setTimeout(() => {
+        if (!dmTextarea.value) restoreDraft();
+      }, 500);
+      document.querySelector('input[name="sendMode"][value="player"]').checked = true;
+      document.getElementById('dmPlayerSelector').style.display = 'flex';
+      document.getElementById('dmBuildingSelector').style.display = 'none';
+      document.querySelectorAll('.var-btn').forEach(btn => {
+        btn.addEventListener('click', () => insertVariable(btn.dataset.var));
+      });
+      document.getElementById('dmSaveTemplateBtn').addEventListener('click', () => saveTemplate(false));
+      document.getElementById('dmSaveAsTemplateBtn').addEventListener('click', () => saveTemplate(true));
+      document.getElementById('dmDeleteTemplateBtn').addEventListener('click', deleteTemplate);
+      document.getElementById('dmSetDefaultBtn').addEventListener('click', setDefault);
+    }
+
+    if (window.buildingsData && window.buildingsData.length > 0) {
+      initDm();
+    } else {
+      document.addEventListener('warboard:dataLoaded', function() {
+        initDm();
+      });
+    }
+
+    window.toggleDmSection = function() {
+      const content = document.getElementById('dmContent');
+      const icon = document.getElementById('dmToggleIcon');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.classList.replace('bi-chevron-right', 'bi-chevron-down');
+      } else {
+        content.style.display = 'none';
+        icon.classList.replace('bi-chevron-down', 'bi-chevron-right');
+      }
+    };
+
+    window.dm = {
+      loadTemplates,
+      loadPlayers,
+      sendDm,
+      selectPlayer,
+      buildPreview,
+      loadHistory,
+      populateBuildingDropdown
+    };
+  })();
+</script>

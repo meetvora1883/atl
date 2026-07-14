@@ -1,0 +1,2483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Warboard' }) %>
+  <style>
+    /* ============================================================
+       WARBOARD – Optimised, smooth, premium
+    ============================================================ */
+    .warboard-container { width: 100%; max-width: 600px; margin: 0 auto; }
+
+    /* ---- Map wrapper ---- */
+    .clan-map-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 456 / 1013;
+      background-image: url('/images/clan/map_background.png');
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      user-select: none;
+      border-radius: var(--radius);
+      overflow: visible !important;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      -webkit-tap-highlight-color: transparent;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease;
+      will-change: opacity;
+    }
+    .clan-map-wrapper.ready { opacity: 1; visibility: visible; }
+
+    .clan-map-wrapper .building {
+      position: absolute;
+      cursor: pointer;
+      transition: transform 0.2s ease, filter 0.2s ease;
+      transform-origin: center bottom;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      will-change: transform;
+    }
+    .building-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .building-name-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      pointer-events: none;
+      padding: 4px 0;
+      box-sizing: border-box;
+      z-index: 2;
+    }
+    .building-name-overlay .name-pill {
+      display: inline-block;
+      background: rgba(0,0,0,0.55);
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-family: var(--font-body), sans-serif;
+      font-weight: 700;
+      color: #fff;
+      font-size: clamp(0.5rem, 1.2vw, 0.85rem);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 90%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+      backdrop-filter: blur(1px);
+    }
+
+    /* ---- Shields (GPU accelerated) ---- */
+    .building-shields {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 3px;
+      width: max-content;
+      max-width: 100%;
+      pointer-events: none;
+      padding: 2px 0;
+      box-sizing: border-box;
+      z-index: 10;
+      will-change: transform;
+    }
+    .shield-icon {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+      flex-shrink: 0;
+      display: block;
+      image-rendering: pixelated;
+      transition: opacity 0.15s ease;
+      will-change: opacity;
+    }
+    .clan-map-wrapper .building:hover { transform: scale(1.05); z-index: 20; }
+    .clan-map-wrapper .building:active { transform: scale(0.97); }
+
+    @media (max-width: 480px) {
+      .building-name-overlay .name-pill { font-size: clamp(0.4rem, 1.8vw, 0.65rem); padding: 1px 6px; border-radius: 8px; }
+      .shield-icon { width: 15px; height: 15px; }
+      .building-shields { gap: 2px; }
+    }
+    @media (max-width: 360px) {
+      .building-name-overlay .name-pill { font-size: 0.4rem; padding: 1px 4px; }
+      .shield-icon { width: 12px; height: 12px; }
+      .building-shields { gap: 1.5px; }
+    }
+
+    /* ---- Modals (GPU accelerated) ---- */
+    .modal-overlay, .selector-overlay, .might-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      will-change: opacity;
+      transition: opacity 0.25s ease;
+      opacity: 0;
+    }
+    .modal-overlay.open, .selector-overlay.open, .might-modal-overlay.open {
+      display: flex;
+      opacity: 1;
+    }
+    .modal-overlay.closing, .selector-overlay.closing, .might-modal-overlay.closing {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-box, .selector-box, .might-modal-box {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      max-width: 750px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      position: relative;
+      font-family: var(--font-body), sans-serif;
+      color: var(--text-primary);
+      scrollbar-width: thin;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transform: scale(0.95);
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+    .modal-overlay.open .modal-box,
+    .selector-overlay.open .selector-box,
+    .might-modal-overlay.open .might-modal-box {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    .selector-box { max-width: 500px; display: flex; flex-direction: column; max-height: calc(100vh - 60px); }
+    .selector-header { position: sticky; top: 0; z-index: 20; background: var(--bg-2); padding: 16px 20px 8px; border-bottom: 1px solid var(--glass-border); }
+    .selector-search-wrap { position: sticky; top: 62px; z-index: 19; background: var(--bg-2); padding: 0 20px 12px; border-bottom: 1px solid var(--glass-border); }
+    .selector-search { width: 100%; padding: 10px 14px; border: 1px solid var(--glass-border); border-radius: 10px; font-size: 0.95rem; background: var(--glass); color: var(--text-primary); box-sizing: border-box; }
+    .selector-add-external { padding: 8px 20px 12px; border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 6px; }
+    .selector-list-wrap { flex: 1; overflow-y: auto; padding: 0 20px 20px; -webkit-overflow-scrolling: touch; }
+    .selector-player { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; cursor: pointer; transition: background 0.15s; border: 1px solid transparent; color: var(--text-primary); flex-wrap: wrap; }
+    .selector-player:hover { background: var(--glass); border-color: var(--glass-border); }
+    .selector-player img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--glass-strong); }
+    .selector-player .info { flex: 1; min-width: 100px; }
+    .group-header { font-weight: 600; color: var(--text-muted); font-size: 0.8rem; padding: 8px 0 4px; border-top: 1px solid var(--glass-border); margin-top: 4px; }
+    .selector-player .move-btn { background: var(--accent-blurple); color: #fff; border: none; padding: 4px 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer; transition: background 0.2s; }
+    .selector-player .move-btn:hover { background: var(--accent-purple); }
+    .selector-player .assigned-info {
+      font-size: 0.75rem;
+      color: var(--accent-amber);
+      font-weight: 500;
+      margin-top: 2px;
+      width: 100%;
+      font-style: italic;
+    }
+    .selector-player .assigned-info i { margin-right: 4px; }
+
+    /* ---- Building Modal ---- */
+    .modal-header {
+      background: linear-gradient(145deg, #2a4b7a, #1a3a5c);
+      padding: 16px 20px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid #8aacd4;
+      position: relative;
+    }
+    .modal-header::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: linear-gradient(to right, #8aacd4, #4a7a9c, #8aacd4);
+      border-radius: 0 0 50% 50%;
+    }
+    .modal-header .left { display: flex; align-items: center; gap: 10px; }
+    .modal-header h2 { color: #f0e6d8; font-weight: 700; font-size: 1.6rem; margin: 0; letter-spacing: 0.03em; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .modal-header .close-btn { background: #8b3a3a; border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 1.3rem; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
+    .modal-header .close-btn:hover { background: #a54444; }
+    .modal-body { padding: 20px 24px 30px; }
+
+    .building-stats {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--glass);
+      border-radius: 14px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      border: 1px solid var(--glass-border);
+    }
+    .capacity-badge { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 1.1rem; }
+    .capacity-badge i { color: var(--accent-amber); font-size: 1.2rem; }
+    .shield-status { display: flex; gap: 4px; align-items: center; }
+    .shield-status img { width: 24px; height: 24px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2)); }
+
+    .garrison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .garrison-slot {
+      background: var(--glass);
+      border-radius: 14px;
+      border: 1px solid var(--glass-border);
+      padding: 12px;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.2s ease;
+      will-change: transform, opacity;
+    }
+    .garrison-slot.empty {
+      border: 2px dashed var(--glass-border);
+      background: rgba(255,255,255,0.02);
+      cursor: pointer;
+    }
+    .garrison-slot.empty:hover { background: var(--glass-strong); border-color: var(--accent-cyan); }
+    .garrison-slot .empty-content { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.8rem; }
+    .garrison-slot .empty-content i { font-size: 2rem; color: var(--text-muted); }
+    .garrison-slot .slot-shield { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; object-fit: contain; }
+    .garrison-slot .player-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--glass-border); margin-bottom: 4px; }
+    .garrison-slot .player-name { font-weight: 600; font-size: 0.9rem; text-align: center; margin: 2px 0; }
+    .garrison-slot .player-might { font-size: 0.75rem; color: var(--text-muted); text-align: center; }
+    .hero-gallery { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin: 4px 0; }
+    .hero-gallery .hero-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; border: 1px solid var(--glass-border); cursor: pointer; transition: transform 0.15s; background: var(--glass-strong); will-change: transform; }
+    .hero-gallery .hero-thumb:hover { transform: scale(1.1); }
+    .slot-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+    .slot-actions button { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer; transition: background 0.15s; color: var(--text-primary); }
+    .slot-actions button:hover { background: var(--glass-strong); }
+    .slot-actions .remove-btn:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+    .section-title { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 18px 0 10px; border-bottom: 1px solid var(--glass-border); padding-bottom: 6px; }
+
+    /* ---- Export preview ---- */
+    .export-preview {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    .export-preview .building-card { background: var(--glass); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-cyan); padding: 12px 16px; margin-bottom: 12px; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .export-preview .building-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+    .export-preview .building-header { font-weight: 700; font-size: 1rem; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .export-preview .building-header .capacity-badge { font-weight: 400; color: var(--text-muted); font-size: 0.8rem; }
+    .export-preview .player-line { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+    .export-preview .player-name { font-weight: 600; color: var(--text-primary); }
+    .export-preview .player-might { color: var(--accent-amber); font-size: 0.8rem; }
+    .export-preview .player-external { font-size: 0.7rem; color: var(--text-muted); margin-left: 4px; }
+
+    .building-card.citadel { border-left-color: #4a90d9; }
+    .building-card.main_gate { border-left-color: #2ecc71; }
+    .building-card.docks { border-left-color: #e67e22; }
+    .building-card.boathouse { border-left-color: #e74c3c; }
+    .building-card.tower_of_elements { border-left-color: #9b59b6; }
+    .building-card.tower_of_foresight { border-left-color: #f1c40f; }
+    .building-card.central_bridge { border-left-color: #1abc9c; }
+    .building-card.western_bridge { border-left-color: #d35400; }
+    .building-card.eastern_bridge { border-left-color: #e91e63; }
+    .building-card.laboratory { border-left-color: #bdc3c7; }
+    .building-card.scriptorium { border-left-color: #2ecc71; }
+
+    .export-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 16px; }
+    .export-controls .control-group { display: flex; align-items: center; gap: 8px; }
+    .export-controls input[type="date"] { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 6px 12px; color: var(--text-primary); }
+    .export-controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .export-controls .btn-group { display: flex; gap: 8px; margin-left: auto; }
+    @media (max-width: 768px) { .export-controls { flex-direction: column; align-items: stretch; } .export-controls .btn-group { margin-left: 0; } }
+
+    /* ---- Scroll improvements ---- */
+    .page-content, .main-wrap, .app-shell { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+    .container { scroll-behavior: smooth; }
+
+    /* ---- Misc ---- */
+    .mt-24 { margin-top: 24px; }
+    .text-muted { color: var(--text-muted); }
+    .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+
+    /* ============================================================
+       MODERN FULL-SCREEN IMAGE VIEWER
+    ============================================================ */
+    .image-viewer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      will-change: opacity;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .image-viewer-overlay.open {
+      display: flex;
+      opacity: 1;
+    }
+    .image-viewer-overlay.closing {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .image-viewer-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .image-viewer-img-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      touch-action: none;
+      will-change: transform;
+      transform-origin: center center;
+    }
+
+    .image-viewer-img {
+      max-width: 90vw;
+      max-height: 85vh;
+      object-fit: contain;
+      will-change: transform;
+      transition: transform 0.1s ease;
+      touch-action: none;
+      cursor: grab;
+    }
+    .image-viewer-img.dragging {
+      cursor: grabbing;
+    }
+
+    .image-viewer-controls {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 10px 18px;
+      border-radius: 40px;
+      border: 1px solid rgba(255,255,255,0.1);
+      z-index: 10;
+      user-select: none;
+    }
+    .image-viewer-controls button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 1.2rem;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-viewer-controls button:hover { background: rgba(255,255,255,0.15); }
+    .image-viewer-controls .counter {
+      color: #fff;
+      font-size: 0.9rem;
+      padding: 0 8px;
+      min-width: 70px;
+      text-align: center;
+    }
+
+    .image-viewer-close {
+      position: absolute;
+      top: 20px;
+      right: 25px;
+      background: rgba(0,0,0,0.4);
+      border: none;
+      color: #fff;
+      font-size: 2rem;
+      cursor: pointer;
+      z-index: 20;
+      padding: 0 10px;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .image-viewer-close:hover { background: rgba(255,255,255,0.2); }
+
+    .image-viewer-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.3);
+      border: none;
+      color: #fff;
+      font-size: 2.5rem;
+      padding: 10px 18px;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: background 0.2s;
+      z-index: 10;
+      touch-action: manipulation;
+    }
+    .image-viewer-nav:hover { background: rgba(255,255,255,0.2); }
+    .image-viewer-nav.prev { left: 20px; }
+    .image-viewer-nav.next { right: 20px; }
+
+    .image-viewer-loading {
+      position: absolute;
+      color: #fff;
+      font-size: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 5;
+    }
+    .image-viewer-loading .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .image-viewer-error {
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+      z-index: 5;
+    }
+    .image-viewer-error button {
+      background: var(--accent-cyan);
+      border: none;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .image-viewer-controls { padding: 8px 14px; gap: 8px; }
+      .image-viewer-controls button { width: 30px; height: 30px; font-size: 1rem; }
+      .image-viewer-nav { font-size: 1.8rem; padding: 6px 12px; }
+      .image-viewer-nav.prev { left: 10px; }
+      .image-viewer-nav.next { right: 10px; }
+      .image-viewer-close { top: 12px; right: 16px; font-size: 1.6rem; }
+    }
+
+    /* ============================================================
+       REDESIGNED EXTERNAL PLAYER MANAGER
+    ============================================================ */
+    #externalManagerModal .modal-box { max-width: 600px; }
+
+    /* ---- Premium Search ---- */
+    .ext-manager-search-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .ext-manager-search-wrap .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 1.1rem;
+    }
+    .ext-manager-search {
+      width: 100%;
+      padding: 10px 14px 10px 44px;
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      background: var(--glass);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      box-sizing: border-box;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .ext-manager-search:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(79, 209, 255, 0.25);
+    }
+    .ext-manager-search::placeholder { color: var(--text-muted); }
+
+    /* ---- External Player Card ---- */
+    .ext-player-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--glass);
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      margin-bottom: 12px;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.25s;
+      will-change: transform, opacity;
+    }
+    .ext-player-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .ext-player-card .left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 1;
+      min-width: 0;
+    }
+    .ext-player-card .avatar-wrap {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: #fff;
+      text-transform: uppercase;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+      will-change: transform;
+    }
+    .ext-player-card .avatar-wrap:hover { transform: scale(1.08); }
+    .ext-player-card .info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .ext-player-card .info .name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+    .ext-player-card .info .details {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+    }
+    .ext-player-card .info .details .badge {
+      background: var(--glass-strong);
+      padding: 0 8px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+    .ext-player-card .info .details .assigned-badge {
+      background: var(--accent-amber);
+      color: #000;
+      padding: 0 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .ext-player-card .actions {
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+    .ext-player-card .actions .delete-btn {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ext-player-card .actions .delete-btn:hover { background: #c0392b; }
+    .ext-player-card .actions .delete-btn:active { transform: scale(0.95); }
+    .ext-player-card .actions .delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ---- Empty state ---- */
+    .ext-empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    .ext-empty-state i {
+      font-size: 3rem;
+      color: var(--glass-border);
+      margin-bottom: 12px;
+      display: block;
+    }
+    .ext-empty-state h4 {
+      color: var(--text-primary);
+      font-weight: 600;
+      margin: 0 0 6px 0;
+    }
+    .ext-empty-state p {
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    /* ---- Divider between cards ---- */
+    .ext-divider {
+      height: 1px;
+      background: var(--glass-border);
+      margin: 6px 0 14px 0;
+      opacity: 0.6;
+    }
+
+    /* ---- Scrollbar styling ---- */
+    .external-manager-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .external-manager-list::-webkit-scrollbar-track {
+      background: var(--glass);
+      border-radius: 10px;
+    }
+    .external-manager-list::-webkit-scrollbar-thumb {
+      background: var(--accent-cyan);
+      border-radius: 10px;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 600px) {
+      .ext-player-card {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .ext-player-card .left {
+        gap: 10px;
+      }
+      .ext-player-card .avatar-wrap {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+      }
+      .ext-player-card .info .details {
+        flex-direction: column;
+        gap: 2px;
+      }
+      .ext-player-card .actions {
+        margin-left: 0;
+        align-self: flex-end;
+      }
+      .ext-player-card .actions .delete-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    /* ============================================================
+       MIGHT MODAL STYLES (added for proper button styling)
+    ============================================================ */
+    .might-modal-overlay .might-modal-box {
+      background: var(--bg-2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      max-width: 380px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .might-modal-overlay .might-modal-box h3 {
+      margin: 0 0 16px 0;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .might-modal-overlay .btn-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .might-modal-overlay .btn-row .back-btn {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      padding: 8px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .might-modal-overlay .btn-row .back-btn:hover {
+      background: var(--glass-strong);
+    }
+    .might-modal-overlay .btn-row .add-btn {
+      background: linear-gradient(135deg, var(--accent-blurple), var(--accent-cyan));
+      border: none;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .might-modal-overlay .btn-row .add-btn:hover {
+      box-shadow: 0 4px 16px rgba(79, 209, 255, 0.4);
+    }
+
+    /* ---- ensure close buttons are styled consistently ---- */
+    .close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      font-size: 1.4rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .close-btn:hover {
+      background: var(--danger);
+    }
+
+    /* ---- ensure toast appears above modals (z-index fix) ---- */
+    .toast-container {
+      z-index: 999999 !important;
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'warboard' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <main class="page-content">
+        <div class="container">
+          <h1 style="margin-bottom:8px;"><%= t['warboard.title'] || 'Warboard' %></h1>
+          <p class="text-muted" style="margin-bottom:24px;"><%= t['warboard.subtitle'] || 'Clan map and strategic overview' %></p>
+
+          <!-- MAP -->
+          <div class="glass card warboard-container" style="padding:12px;">
+            <div class="clan-map-wrapper" id="clanMap"></div>
+          </div>
+
+          <!-- EXPORT -->
+          <div class="glass card mt-24" style="padding:20px;">
+            <h3 style="margin-bottom:8px;">Discord Warboard Export</h3>
+            <p class="text-muted" style="margin-bottom:16px; font-size:0.9rem;">Live preview of the Discord message. Copy the formatted export to your clipboard.</p>
+            <div class="export-controls">
+              <div class="control-group">
+                <label for="war-date">Clan War Date:</label>
+                <input type="date" id="war-date" />
+              </div>
+              <label><input type="checkbox" id="everyone-toggle" checked /> @everyone</label>
+              <div class="btn-group">
+                <button id="copy-export-btn" class="btn btn-ghost" disabled><i class="bi bi-clipboard"></i> Copy</button>
+              </div>
+            </div>
+            <div id="export-preview" class="export-preview"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODALS
+  ============================================================ -->
+  <!-- Building Modal -->
+  <div class="modal-overlay" id="buildingModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="left"><h2 id="modalBuildingName">Building</h2></div>
+        <button class="close-btn" id="closeModalBtn">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div class="building-stats">
+          <div class="capacity-badge"><i class="bi bi-people-fill"></i> <span>Capacity: <strong id="modalCapacity">0</strong></span></div>
+          <div class="shield-status" id="modalShields"></div>
+        </div>
+        <div class="section-title">Garrison</div>
+        <div class="garrison-grid" id="garrisonGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player Selector -->
+  <div class="selector-overlay" id="playerSelector">
+    <div class="selector-box">
+      <div class="selector-header">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 style="margin:0;">Select Player</h3>
+          <button class="close-btn" onclick="closePlayerSelector()">&times;</button>
+        </div>
+      </div>
+      <div class="selector-search-wrap">
+        <input type="text" class="selector-search" id="selectorSearch" placeholder="Search players..." />
+      </div>
+      <div class="selector-add-external">
+        <button class="btn btn-primary btn-sm" onclick="openExternalPlayerModal()"><i class="bi bi-person-plus"></i> Add External Player</button>
+        <button class="btn btn-ghost btn-sm" onclick="openExternalManagerModal()"><i class="bi bi-list-ul"></i> Manage External Players</button>
+      </div>
+      <div class="selector-list-wrap" id="selectorList"></div>
+    </div>
+  </div>
+
+  <!-- External Player Modal (Add) -->
+  <div class="modal-overlay" id="externalPlayerModal">
+    <div class="modal-box" style="max-width:420px;">
+      <div class="modal-header">
+        <div class="left"><h2 style="color:#f0e6d8; font-size:1.2rem;">Add External Player</h2></div>
+        <button class="close-btn" onclick="closeExternalPlayerModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="external-player-form">
+          <div class="field"><label>Player Name *</label><input type="text" id="ext-player-name" required /></div>
+          <div class="field"><label>Discord ID (optional)</label><input type="text" id="ext-discord-id" placeholder="e.g. 123456789012345678" /></div>
+          <div class="field"><label>Might (optional)</label><input type="text" id="ext-might" placeholder="e.g. 6800 or 6.8K" /></div>
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            <button type="button" class="btn btn-ghost" onclick="closeExternalPlayerModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Player</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       EXTERNAL PLAYER MANAGER – REDESIGNED
+  ============================================================ -->
+  <div class="modal-overlay" id="externalManagerModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="left"><h2 style="color:#f0e6d8; font-size:1.2rem;">Manage External Players</h2></div>
+        <button class="close-btn" onclick="closeExternalManagerModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Total count -->
+        <div class="external-manager-total" id="externalManagerTotal" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:12px;">0 players</div>
+
+        <!-- Premium Search -->
+        <div class="ext-manager-search-wrap">
+          <i class="bi bi-search search-icon"></i>
+          <input type="text" class="ext-manager-search" id="externalManagerSearch" placeholder="Search external players..." />
+        </div>
+
+        <!-- List container -->
+        <div class="external-manager-list" id="externalManagerList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Might Modal -->
+  <div class="might-modal-overlay" id="mightModal">
+    <div class="might-modal-box">
+      <h3 id="mightModalTitle">Enter Might</h3>
+      <div class="field"><label for="mightInput">Might value</label><input type="text" id="mightInput" placeholder="e.g. 2,217%" /></div>
+      <div class="btn-row">
+        <button class="back-btn" id="mightBackBtn">← Back</button>
+        <button class="add-btn" id="mightAddBtn">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       FULL-SCREEN IMAGE VIEWER
+  ============================================================ -->
+  <div class="image-viewer-overlay" id="imageViewer">
+    <button class="image-viewer-close" id="viewerClose">&times;</button>
+    <button class="image-viewer-nav prev" id="viewerPrev">‹</button>
+    <button class="image-viewer-nav next" id="viewerNext">›</button>
+
+    <div class="image-viewer-container" id="viewerContainer">
+      <div class="image-viewer-loading" id="viewerLoading">
+        <div class="spinner"></div>
+        <span>Loading…</span>
+      </div>
+      <div class="image-viewer-error" id="viewerError" style="display:none;">
+        <p>Failed to load image.</p>
+        <button id="viewerRetry">Retry</button>
+      </div>
+      <div class="image-viewer-img-wrap" id="viewerImgWrap">
+        <img class="image-viewer-img" id="viewerImg" src="" alt="Hero image" draggable="false" />
+      </div>
+    </div>
+
+    <div class="image-viewer-controls">
+      <button id="viewerZoomIn" title="Zoom In">+</button>
+      <button id="viewerZoomOut" title="Zoom Out">−</button>
+      <button id="viewerZoomReset" title="Reset Zoom">⟲</button>
+      <span class="counter" id="viewerCounter">1 / 1</span>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <script>
+    // ============================================================
+    // FIX 1: TOAST NOTIFICATIONS – always visible above modals
+    // ============================================================
+    (function fixToast() {
+      let toastContainer = document.getElementById('toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container';
+        toastContainer.style.position = 'fixed';
+        toastContainer.style.bottom = '24px';
+        toastContainer.style.right = '24px';
+        toastContainer.style.display = 'flex';
+        toastContainer.style.flexDirection = 'column';
+        toastContainer.style.gap = '10px';
+        toastContainer.style.zIndex = '999999';
+        toastContainer.style.maxWidth = '340px';
+        toastContainer.style.pointerEvents = 'none';
+      }
+      if (toastContainer.parentNode !== document.body) {
+        document.body.appendChild(toastContainer);
+      }
+
+      window.showToast = function(type, title, message, duration) {
+        // Normalise arguments
+        if (typeof message === 'undefined' && typeof title !== 'undefined') {
+          message = title;
+          title = type.charAt(0).toUpperCase() + type.slice(1);
+        }
+        type = type || 'info';
+        title = title || '';
+        message = message || '';
+        duration = duration || 5000;
+
+        const el = document.createElement('div');
+        el.className = `toast toast-${type}`;
+        el.style.pointerEvents = 'auto';
+        const icons = {
+          success: 'bi-check-circle',
+          warning: 'bi-exclamation-triangle',
+          error: 'bi-x-circle',
+          info: 'bi-info-circle'
+        };
+        el.innerHTML = `
+          <i class="bi ${icons[type] || icons.info}"></i>
+          <div class="toast-body">
+            <div class="toast-title">${title}</div>
+            ${message ? `<div class="toast-msg">${message}</div>` : ''}
+          </div>
+          <button class="toast-close"><i class="bi bi-x"></i></button>
+          <div class="toast-timer"></div>
+        `;
+        toastContainer.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+
+        const timerBar = el.querySelector('.toast-timer');
+        timerBar.style.transitionDuration = duration + 'ms';
+        requestAnimationFrame(() => { timerBar.style.transform = 'scaleX(0)'; });
+
+        const remove = () => {
+          el.classList.remove('show');
+          setTimeout(() => el.remove(), 250);
+        };
+        const t = setTimeout(remove, duration);
+        el.querySelector('.toast-close').addEventListener('click', () => { clearTimeout(t); remove(); });
+      };
+    })();
+
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const BUILDINGS = [
+      { id: 'citadel', label: 'Citadel', image: 'citadel.png', x: 23.0, y: 18.0, width: 60.0, height: 22 },
+      { id: 'tower_of_foresight', label: 'Tower of Foresight', image: 'tower_of_foresight.png', x: 0, y: 27.0, width: 40.0, height: 18.0 },
+      { id: 'tower_of_elements', label: 'Tower of Elements', image: 'tower_of_elements.png', x: 63.0, y: 27.0, width: 40.0, height: 18.0 },
+      { id: 'main_gate', label: 'Main Gate', image: 'main_gate.png', x: 26.7, y: 42, width: 50.0, height: 16.0 },
+      { id: 'scriptorium', label: 'Scriptorium', image: 'scriptorium.png', x: 1.0, y: 55.6, width: 41.4, height: 11.0 },
+      { id: 'laboratory', label: 'Laboratory', image: 'laboratory.png', x: 63.0, y: 55.6, width: 41.4, height: 11.0 },
+      { id: 'western_bridge', label: 'Western Bridge', image: 'western_bridge.png', x: 15.7, y: 68.5, width: 25.0, height: 7.6 },
+      { id: 'central_bridge', label: 'Central Bridge', image: 'central_bridge.png', x: 31.5, y: 61.5, width: 37.0, height: 14.6 },
+      { id: 'eastern_bridge', label: 'Eastern Bridge', image: 'eastern_bridge.png', x: 60.4, y: 68.5, width: 25.0, height: 7.6 },
+      { id: 'docks', label: 'Docks', image: 'docks.png', x: 25.9, y: 82.0, width: 25.3, height: 7.0 },
+      { id: 'boathouse', label: 'Boathouse', image: 'boathouse.png', x: 52.8, y: 82.0, width: 25.3, height: 7.0 }
+    ];
+    const IMAGE_BASE = '/images/clan/';
+    const SHIELD_GOLD = '/images/clan/shield_gold.png';
+    const SHIELD_BLANK = '/images/clan/shield_blank.png';
+
+    const BUILDING_COLORS = {
+      citadel: '#4a90d9',
+      main_gate: '#2ecc71',
+      docks: '#e67e22',
+      boathouse: '#e74c3c',
+      tower_of_elements: '#9b59b6',
+      tower_of_foresight: '#f1c40f',
+      central_bridge: '#1abc9c',
+      western_bridge: '#d35400',
+      eastern_bridge: '#e91e63',
+      laboratory: '#bdc3c7',
+      scriptorium: '#2ecc71'
+    };
+
+    const API_BASE = '/api/warboard';
+    const csrfToken = window.__CSRF_TOKEN__ || '';
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let buildingsData = [];
+    let playersData = [];
+    let externalPlayers = [];
+    let garrisonData = {};
+    let buildingShields = {};
+    let allDataLoaded = false;
+
+    const mapEl = document.getElementById('clanMap');
+    const exportPreview = document.getElementById('export-preview');
+    const copyBtn = document.getElementById('copy-export-btn');
+
+    let pendingAssignment = null;
+
+    // ============================================================
+    // AVATAR GENERATOR (hash-based consistent colours)
+    // ============================================================
+    function getColorForName(name) {
+      const colors = [
+        '#7c3aed', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b',
+        '#ec4899', '#ef4444', '#6366f1', '#34d399', '#14b8a6'
+      ];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % colors.length;
+      return colors[index];
+    }
+    function generateAvatar(name) {
+      const firstLetter = name.charAt(0).toUpperCase() || '?';
+      const bg = getColorForName(name);
+      return { letter: firstLetter, background: bg };
+    }
+
+    // ============================================================
+    // PRELOAD
+    // ============================================================
+    async function preloadImages() {
+      const imageUrls = [
+        ...BUILDINGS.map(b => IMAGE_BASE + b.image),
+        SHIELD_GOLD,
+        SHIELD_BLANK,
+        '/images/clan/map_background.png'
+      ];
+      await Promise.all(imageUrls.map(url => new Promise(resolve => {
+        const img = new Image();
+        img.onload = img.onerror = () => resolve();
+        img.src = url;
+      })));
+    }
+
+    // ============================================================
+    // FETCH DATA
+    // ============================================================
+    async function fetchAllData() {
+      try {
+        const res = await fetch(`${API_BASE}`, { headers: { 'x-csrf-token': csrfToken } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.buildings || !Array.isArray(data.buildings)) throw new Error('Invalid response');
+        buildingsData = data.buildings;
+        playersData = data.players || [];
+
+        const extRes = await fetch(`${API_BASE}/external`, { headers: { 'x-csrf-token': csrfToken } });
+        if (extRes.ok) externalPlayers = await extRes.json();
+
+        buildingsData.forEach(b => {
+          const slots = b.garrisonSlots || [];
+          garrisonData[b.id] = slots;
+          const filled = slots.filter(s => s.occupied).length;
+          buildingShields[b.id] = {
+            max: b.maxShields || b.capacity,
+            filled,
+            slotOccupancy: slots.map(s => s.occupied)
+          };
+        });
+
+        allDataLoaded = true;
+        return data;
+      } catch (e) {
+        console.error('[Warboard] Fetch error:', e);
+        mapEl.innerHTML = '<p class="text-muted" style="text-align:center;padding:20px;color:var(--danger);">Failed to load Warboard. Please refresh.</p>';
+        return null;
+      }
+    }
+
+    // ============================================================
+    // RENDER BUILDINGS
+    // ============================================================
+    function renderBuildings() {
+      if (!mapEl) return;
+      const fragment = document.createDocumentFragment();
+
+      BUILDINGS.forEach((b) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'building';
+        wrapper.dataset.id = b.id;
+        wrapper.style.left = b.x + '%';
+        wrapper.style.top = b.y + '%';
+        wrapper.style.width = b.width + '%';
+        wrapper.style.height = b.height + '%';
+
+        const img = document.createElement('img');
+        img.className = 'building-image';
+        img.src = IMAGE_BASE + b.image;
+        img.alt = b.label;
+        img.draggable = false;
+        wrapper.appendChild(img);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'building-name-overlay';
+        const pill = document.createElement('span');
+        pill.className = 'name-pill';
+        pill.textContent = b.label;
+        overlay.appendChild(pill);
+        wrapper.appendChild(overlay);
+
+        const shieldsRow = document.createElement('div');
+        shieldsRow.className = 'building-shields';
+        shieldsRow.dataset.buildingId = b.id;
+        wrapper.appendChild(shieldsRow);
+
+        wrapper.addEventListener('click', () => handleBuildingClick(b));
+        fragment.appendChild(wrapper);
+      });
+
+      mapEl.innerHTML = '';
+      mapEl.appendChild(fragment);
+      updateAllShields();
+    }
+
+    function updateAllShields() {
+      BUILDINGS.forEach(b => {
+        const shieldInfo = buildingShields[b.id] || { max: 5, slotOccupancy: [] };
+        const slotOccupancy = shieldInfo.slotOccupancy || [];
+        const maxShields = shieldInfo.max || 5;
+
+        const shieldsRow = mapEl.querySelector(`.building-shields[data-building-id="${b.id}"]`);
+        if (!shieldsRow) return;
+
+        const currentIcons = shieldsRow.querySelectorAll('.shield-icon');
+        if (currentIcons.length !== maxShields) {
+          shieldsRow.innerHTML = '';
+          for (let i = 0; i < maxShields; i++) {
+            const shieldImg = document.createElement('img');
+            shieldImg.className = 'shield-icon';
+            shieldImg.dataset.index = i;
+            shieldImg.draggable = false;
+            const occupied = slotOccupancy[i] || false;
+            shieldImg.src = occupied ? SHIELD_GOLD : SHIELD_BLANK;
+            shieldImg.alt = occupied ? 'Filled shield' : 'Empty shield';
+            shieldsRow.appendChild(shieldImg);
+          }
+        } else {
+          currentIcons.forEach((img, i) => {
+            const occupied = slotOccupancy[i] || false;
+            const newSrc = occupied ? SHIELD_GOLD : SHIELD_BLANK;
+            if (img.src !== newSrc) img.src = newSrc;
+          });
+        }
+      });
+    }
+
+    // ============================================================
+    // BUILDING MODAL
+    // ============================================================
+    function handleBuildingClick(building) {
+      if (!allDataLoaded) { if (window.showToast) window.showToast('warning', 'Data not loaded yet.'); return; }
+      renderModal(building.id);
+    }
+
+    const modalOverlay = document.getElementById('buildingModal');
+    const modalName = document.getElementById('modalBuildingName');
+    const modalCapacity = document.getElementById('modalCapacity');
+    const modalShields = document.getElementById('modalShields');
+    const garrisonGrid = document.getElementById('garrisonGrid');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    let currentBuildingId = null;
+
+    function closeModal() {
+      modalOverlay.classList.add('closing');
+      setTimeout(() => {
+        modalOverlay.classList.remove('open', 'closing');
+        document.body.style.overflow = '';
+      }, 200);
+    }
+    closeModalBtn.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+
+    async function fetchGarrisonSlots(buildingId) {
+      try {
+        const res = await fetch(`${API_BASE}/garrison/${buildingId}`, { headers: { 'x-csrf-token': csrfToken } });
+        if (res.ok) {
+          const data = await res.json();
+          const slots = data.garrisonSlots || [];
+          garrisonData[buildingId] = slots;
+          const filled = slots.filter(s => s.occupied).length;
+          const building = buildingsData.find(b => b.id === buildingId);
+          if (building) {
+            buildingShields[buildingId] = {
+              max: building.maxShields || building.capacity,
+              filled,
+              slotOccupancy: slots.map(s => s.occupied)
+            };
+          }
+          return slots;
+        }
+      } catch (e) { console.warn('Failed to fetch garrison', e); }
+      return [];
+    }
+
+    async function renderModal(buildingId) {
+      const building = buildingsData.find(b => b.id === buildingId);
+      if (!building) { if (window.showToast) window.showToast('error', 'Building not found'); return; }
+      currentBuildingId = buildingId;
+      modalName.textContent = building.name;
+      modalCapacity.textContent = building.capacity;
+
+      const slots = await fetchGarrisonSlots(buildingId);
+      const shieldInfo = buildingShields[buildingId] || { max: building.capacity, slotOccupancy: [] };
+      const slotOccupancy = shieldInfo.slotOccupancy || [];
+      const maxShields = building.maxShields || building.capacity;
+
+      modalShields.innerHTML = '';
+      for (let i = 0; i < maxShields; i++) {
+        const img = document.createElement('img');
+        img.src = (slotOccupancy[i] || false) ? SHIELD_GOLD : SHIELD_BLANK;
+        img.alt = (slotOccupancy[i] || false) ? 'Filled shield' : 'Empty shield';
+        modalShields.appendChild(img);
+      }
+
+      const fragment = document.createDocumentFragment();
+      slots.forEach(slot => {
+        const slotEl = createSlotElement(slot, buildingId);
+        fragment.appendChild(slotEl);
+      });
+      garrisonGrid.innerHTML = '';
+      garrisonGrid.appendChild(fragment);
+
+      modalOverlay.classList.remove('closing');
+      modalOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // ============================================================
+    // CREATE SLOT ELEMENT (with hero upload & gallery)
+    // ============================================================
+    function createSlotElement(slot, buildingId) {
+      const div = document.createElement('div');
+      div.className = 'garrison-slot';
+      const slotNumber = slot.slot + 1;
+
+      if (!slot.occupied) {
+        div.classList.add('empty');
+        div.innerHTML = `
+          <div class="empty-content">
+            <i class="bi bi-plus-circle"></i>
+            <span>Garrison ${slotNumber}</span>
+          </div>
+        `;
+        div.addEventListener('click', () => openPlayerSelector(buildingId, slot.slot));
+        return div;
+      }
+
+      const player = slot.player;
+      const shieldImg = document.createElement('img');
+      shieldImg.className = 'slot-shield';
+      shieldImg.src = SHIELD_GOLD;
+      shieldImg.alt = 'Occupied';
+      div.appendChild(shieldImg);
+
+      // Avatar + Upload button
+      const avatarWrap = document.createElement('div');
+      avatarWrap.style.display = 'flex';
+      avatarWrap.style.alignItems = 'center';
+      avatarWrap.style.gap = '8px';
+      avatarWrap.style.width = '100%';
+      avatarWrap.style.justifyContent = 'center';
+
+      const avatar = document.createElement('img');
+      avatar.className = 'player-avatar';
+      if (player.type === 'external') {
+        avatar.src = '/images/avatars/external.png';
+        avatar.style.background = 'var(--glass-strong)';
+      } else {
+        avatar.src = player.avatar || `https://cdn.discordapp.com/embed/avatars/0.png`;
+        avatar.onerror = function() {
+          this.onerror = null;
+          this.src = `https://cdn.discordapp.com/embed/avatars/${Math.floor(Math.random() * 6)}.png`;
+        };
+      }
+      avatarWrap.appendChild(avatar);
+
+      const uploadBtn = document.createElement('button');
+      uploadBtn.className = 'btn btn-sm btn-ghost';
+      uploadBtn.style.padding = '2px 8px';
+      uploadBtn.style.fontSize = '0.65rem';
+      uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Upload';
+      uploadBtn.title = 'Upload hero images';
+      if (!player.discordId && player.type === 'external') {
+        uploadBtn.disabled = true;
+        uploadBtn.title = 'External player without Discord ID cannot upload';
+      } else {
+        uploadBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const fileInput = document.createElement('input');
+          fileInput.type = 'file';
+          fileInput.accept = 'image/jpeg,image/png,image/webp';
+          fileInput.multiple = true;
+          fileInput.addEventListener('change', async (ev) => {
+            const files = ev.target.files;
+            if (!files || files.length === 0) return;
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+            const formData = new FormData();
+            for (let f of files) formData.append('images', f);
+            formData.append('discordId', player.discordId);
+            try {
+              const res = await fetch(`${API_BASE}/heroes`, {
+                method: 'POST',
+                headers: { 'x-csrf-token': csrfToken },
+                body: formData
+              });
+              if (res.ok) {
+                const gallery = div.querySelector('.hero-gallery');
+                if (gallery) await loadHeroImages(player.discordId, gallery);
+                if (window.showToast) window.showToast('success', `${files.length} hero image(s) uploaded.`);
+              } else {
+                const err = await res.json();
+                if (window.showToast) window.showToast('error', err.error || 'Upload failed');
+              }
+            } catch (e) {
+              if (window.showToast) window.showToast('error', 'Network error');
+            }
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Upload';
+          });
+          fileInput.click();
+        });
+      }
+      avatarWrap.appendChild(uploadBtn);
+      div.appendChild(avatarWrap);
+
+      // Name
+      const name = document.createElement('div');
+      name.className = 'player-name';
+      name.textContent = player.type === 'external' ? (player.username || 'External') + ' (External)' : (player.username || 'Unknown');
+      div.appendChild(name);
+
+      if (player.might) {
+        const might = document.createElement('div');
+        might.className = 'player-might';
+        might.textContent = `${player.might} Might`;
+        div.appendChild(might);
+      }
+
+      // Hero Gallery (latest 3 + View All)
+      const galleryContainer = document.createElement('div');
+      galleryContainer.style.display = 'flex';
+      galleryContainer.style.flexDirection = 'column';
+      galleryContainer.style.alignItems = 'center';
+      galleryContainer.style.gap = '4px';
+      galleryContainer.style.width = '100%';
+
+      const gallery = document.createElement('div');
+      gallery.className = 'hero-gallery';
+      gallery.id = `hero-gallery-${player.discordId}`;
+      gallery.style.width = '100%';
+      gallery.style.justifyContent = 'center';
+      galleryContainer.appendChild(gallery);
+
+      const viewAll = document.createElement('div');
+      viewAll.style.fontSize = '0.7rem';
+      viewAll.style.marginTop = '2px';
+      const viewAllLink = document.createElement('a');
+      viewAllLink.href = `/api/warboard/player/${player.discordId}/heroes`;
+      // viewAllLink.target = '_blank'; // ← REMOVED – opens in same tab now
+      viewAllLink.textContent = 'View All';
+      viewAllLink.style.color = 'var(--accent-cyan)';
+      viewAllLink.style.textDecoration = 'underline';
+      viewAll.appendChild(viewAllLink);
+      galleryContainer.appendChild(viewAll);
+
+      div.appendChild(galleryContainer);
+
+      if (player.discordId) {
+        loadHeroImages(player.discordId, gallery);
+      } else {
+        gallery.innerHTML = '<span class="text-muted" style="font-size:0.6rem;">No Discord ID</span>';
+      }
+
+      // Actions
+      const actions = document.createElement('div');
+      actions.className = 'slot-actions';
+      const changeBtn = document.createElement('button');
+      changeBtn.textContent = 'Change';
+      changeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openPlayerSelectorForChange(buildingId, slot.slot);
+      });
+      actions.appendChild(changeBtn);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Remove ${player.username || 'External'} from Garrison slot ${slotNumber}?`)) return;
+        try {
+          const res = await fetch(`${API_BASE}/garrison/${buildingId}/${slot.slot}`, {
+            method: 'DELETE',
+            headers: { 'x-csrf-token': csrfToken }
+          });
+          if (res.ok) {
+            if (window.showToast) window.showToast('success', `${player.username || 'External'} removed`);
+            await refreshDataAndUI(buildingId);
+          } else {
+            const err = await res.json();
+            if (window.showToast) window.showToast('error', err.error || 'Failed to remove');
+          }
+        } catch (e) {
+          if (window.showToast) window.showToast('error', 'Network error');
+        }
+      });
+      actions.appendChild(removeBtn);
+      div.appendChild(actions);
+
+      return div;
+    }
+
+    // ============================================================
+    // HERO IMAGES (load latest 3, newest first)
+    // ============================================================
+    async function loadHeroImages(discordId, container) {
+      try {
+        const res = await fetch(`${API_BASE}/heroes/${discordId}`, { headers: { 'x-csrf-token': csrfToken } });
+        if (res.ok) {
+          const images = await res.json();
+          container.innerHTML = '';
+          if (images.length === 0) {
+            const placeholder = document.createElement('span');
+            placeholder.className = 'text-muted';
+            placeholder.style.fontSize = '0.6rem';
+            placeholder.textContent = 'No Hero Images';
+            container.appendChild(placeholder);
+            return;
+          }
+          const display = images.slice(0, 3);
+          display.forEach(img => {
+            const thumb = document.createElement('img');
+            thumb.className = 'hero-thumb';
+            thumb.src = img.image_path;
+            thumb.alt = 'Hero';
+            thumb.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openImageViewer(discordId, img.image_path);
+            });
+            container.appendChild(thumb);
+          });
+        }
+      } catch (e) { console.warn('Failed to load hero images', e); }
+    }
+
+    // ============================================================
+    // FULL-SCREEN IMAGE VIEWER
+    // ============================================================
+    const viewerOverlay = document.getElementById('imageViewer');
+    const viewerImg = document.getElementById('viewerImg');
+    const viewerContainer = document.getElementById('viewerContainer');
+    const viewerImgWrap = document.getElementById('viewerImgWrap');
+    const viewerCounter = document.getElementById('viewerCounter');
+    const viewerLoading = document.getElementById('viewerLoading');
+    const viewerError = document.getElementById('viewerError');
+
+    let viewerImages = [];
+    let viewerIndex = 0;
+    let viewerZoom = 1;
+    let viewerPanX = 0, viewerPanY = 0;
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0;
+    let lastPanX = 0, lastPanY = 0;
+    let touchStartDist = 0;
+
+    function openImageViewer(discordId, initialImage) {
+      fetch(`${API_BASE}/heroes/${discordId}`, { headers: { 'x-csrf-token': csrfToken } })
+        .then(res => res.ok ? res.json() : [])
+        .then(images => {
+          if (!images || images.length === 0) {
+            if (window.showToast) window.showToast('warning', 'No hero images found.');
+            return;
+          }
+          viewerImages = images.map(img => img.image_path);
+          const idx = viewerImages.indexOf(initialImage);
+          viewerIndex = idx >= 0 ? idx : 0;
+          openViewerAtIndex();
+        })
+        .catch(() => {
+          if (window.showToast) window.showToast('error', 'Failed to load hero images.');
+        });
+    }
+
+    function openViewerAtIndex() {
+      viewerOverlay.classList.remove('closing');
+      viewerOverlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      loadViewerImage(viewerIndex);
+    }
+
+    function closeViewer() {
+      viewerOverlay.classList.add('closing');
+      setTimeout(() => {
+        viewerOverlay.classList.remove('open', 'closing');
+        document.body.style.overflow = '';
+        resetViewerTransform();
+      }, 300);
+    }
+
+    function resetViewerTransform() {
+      viewerZoom = 1;
+      viewerPanX = 0;
+      viewerPanY = 0;
+      updateViewerTransform();
+    }
+
+    function updateViewerTransform() {
+      viewerImg.style.transform = `scale(${viewerZoom}) translate(${viewerPanX}px, ${viewerPanY}px)`;
+    }
+
+    function loadViewerImage(index) {
+      if (index < 0 || index >= viewerImages.length) return;
+      viewerIndex = index;
+      const src = viewerImages[index];
+      viewerCounter.textContent = `${index+1} / ${viewerImages.length}`;
+      viewerLoading.style.display = 'flex';
+      viewerError.style.display = 'none';
+      viewerImg.style.display = 'none';
+
+      preloadImage(index - 1);
+      preloadImage(index + 1);
+
+      const img = new Image();
+      img.onload = () => {
+        viewerImg.src = src;
+        viewerImg.style.display = 'block';
+        viewerLoading.style.display = 'none';
+        resetViewerTransform();
+      };
+      img.onerror = () => {
+        viewerLoading.style.display = 'none';
+        viewerError.style.display = 'block';
+        viewerImg.style.display = 'none';
+      };
+      img.src = src;
+    }
+
+    function preloadImage(index) {
+      if (index < 0 || index >= viewerImages.length) return;
+      const img = new Image();
+      img.src = viewerImages[index];
+    }
+
+    function goPrev() {
+      if (viewerImages.length === 0) return;
+      const newIndex = (viewerIndex - 1 + viewerImages.length) % viewerImages.length;
+      loadViewerImage(newIndex);
+    }
+
+    function goNext() {
+      if (viewerImages.length === 0) return;
+      const newIndex = (viewerIndex + 1) % viewerImages.length;
+      loadViewerImage(newIndex);
+    }
+
+    function zoomIn() {
+      viewerZoom = Math.min(viewerZoom * 1.3, 10);
+      updateViewerTransform();
+    }
+
+    function zoomOut() {
+      viewerZoom = Math.max(viewerZoom / 1.3, 0.5);
+      updateViewerTransform();
+    }
+
+    function resetZoom() {
+      resetViewerTransform();
+    }
+
+    function startPan(e) {
+      if (viewerZoom <= 1) return;
+      isDragging = true;
+      const pos = getEventPos(e);
+      dragStartX = pos.x;
+      dragStartY = pos.y;
+      lastPanX = viewerPanX;
+      lastPanY = viewerPanY;
+      viewerImg.classList.add('dragging');
+      e.preventDefault();
+    }
+
+    function movePan(e) {
+      if (!isDragging) return;
+      const pos = getEventPos(e);
+      const dx = pos.x - dragStartX;
+      const dy = pos.y - dragStartY;
+      viewerPanX = lastPanX + dx;
+      viewerPanY = lastPanY + dy;
+      updateViewerTransform();
+      e.preventDefault();
+    }
+
+    function endPan() {
+      isDragging = false;
+      viewerImg.classList.remove('dragging');
+    }
+
+    function getEventPos(e) {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      viewerZoom = Math.min(Math.max(viewerZoom + delta, 0.5), 10);
+      updateViewerTransform();
+    }
+
+    function onDoubleClick(e) {
+      e.preventDefault();
+      resetZoom();
+    }
+
+    function onTouchStart(e) {
+      if (e.touches.length === 2) {
+        const t = e.touches;
+        touchStartDist = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      }
+    }
+
+    function onTouchMove(e) {
+      if (e.touches.length === 2) {
+        const t = e.touches;
+        const dist = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+        if (touchStartDist > 0) {
+          const scale = dist / touchStartDist;
+          viewerZoom = Math.min(Math.max(viewerZoom * scale, 0.5), 10);
+          updateViewerTransform();
+          touchStartDist = dist;
+          e.preventDefault();
+        }
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (!viewerOverlay.classList.contains('open')) return;
+      if (e.key === 'Escape') closeViewer();
+      if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'ArrowRight') goNext();
+    });
+
+    document.getElementById('viewerClose').addEventListener('click', closeViewer);
+    document.getElementById('viewerPrev').addEventListener('click', goPrev);
+    document.getElementById('viewerNext').addEventListener('click', goNext);
+    document.getElementById('viewerZoomIn').addEventListener('click', zoomIn);
+    document.getElementById('viewerZoomOut').addEventListener('click', zoomOut);
+    document.getElementById('viewerZoomReset').addEventListener('click', resetZoom);
+    document.getElementById('viewerRetry').addEventListener('click', () => loadViewerImage(viewerIndex));
+
+    viewerImg.addEventListener('mousedown', startPan);
+    document.addEventListener('mousemove', movePan);
+    document.addEventListener('mouseup', endPan);
+    viewerImg.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) startPan(e);
+      onTouchStart(e);
+    });
+    document.addEventListener('touchmove', (e) => {
+      movePan(e);
+      onTouchMove(e);
+    }, { passive: false });
+    document.addEventListener('touchend', endPan);
+
+    viewerImg.addEventListener('wheel', onWheel, { passive: false });
+    viewerImg.addEventListener('dblclick', onDoubleClick);
+
+    viewerOverlay.addEventListener('click', (e) => {
+      if (e.target === viewerOverlay || e.target === viewerContainer) {
+        closeViewer();
+      }
+    });
+
+    // ============================================================
+    // PLAYER SELECTOR – FIXED (garrison detection & info)
+    // ============================================================
+    const selectorOverlay = document.getElementById('playerSelector');
+    const selectorList = document.getElementById('selectorList');
+    const selectorSearch = document.getElementById('selectorSearch');
+    let selectedBuildingId = null;
+    let selectedSlot = null;
+
+    function openPlayerSelector(buildingId, slot) {
+      selectedBuildingId = buildingId;
+      selectedSlot = slot;
+      selectorOverlay.classList.add('open');
+      renderSelectorList('');
+      selectorSearch.value = '';
+      selectorSearch.focus();
+    }
+
+    function openPlayerSelectorForChange(buildingId, slot) {
+      openPlayerSelector(buildingId, slot);
+    }
+
+    function closePlayerSelector() {
+      selectorOverlay.classList.remove('open');
+    }
+
+    let searchTimeout = null;
+    selectorSearch.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => renderSelectorList(this.value), 200);
+    });
+
+    selectorOverlay.addEventListener('click', (e) => { if (e.target === selectorOverlay) closePlayerSelector(); });
+
+    // FIX: getPlayerGarrison compares discordId
+    async function getPlayerGarrison(type, id) {
+      for (const [buildingId, slots] of Object.entries(garrisonData)) {
+        const found = slots.find(s => {
+          if (!s.occupied || !s.player) return false;
+          if (s.player.type !== type) return false;
+          if (type === 'discord') {
+            return s.player.discordId === id;  // compare Discord ID strings
+          } else {
+            return s.player.external_player_id === id;
+          }
+        });
+        if (found) {
+          const building = buildingsData.find(b => b.id === buildingId);
+          return building ? { buildingId, buildingName: building.name, slot: found.slot } : null;
+        }
+      }
+      return null;
+    }
+
+    async function renderSelectorList(query) {
+      const lower = query.toLowerCase();
+      const currentAssignedDiscord = (garrisonData[selectedBuildingId] || [])
+        .filter(s => s.occupied && s.player?.type === 'discord')
+        .map(s => s.player.discordId);
+      const currentAssignedExternal = (garrisonData[selectedBuildingId] || [])
+        .filter(s => s.occupied && s.player?.type === 'external')
+        .map(s => s.player.external_player_id);
+
+      const discordPlayers = playersData
+        .filter(p => !currentAssignedDiscord.includes(p.discordId) && p.name.toLowerCase().includes(lower))
+        .map(p => ({ ...p, type: 'discord', id: p.discordId, name: p.name }));
+
+      const externalPlayersFiltered = externalPlayers
+        .filter(p => !currentAssignedExternal.includes(p.id) && p.player_name.toLowerCase().includes(lower))
+        .map(p => ({ ...p, type: 'external', id: p.id, name: p.player_name, discordId: p.discord_id, might: p.might }));
+
+      const fragment = document.createDocumentFragment();
+
+      function renderGroup(title, players, renderFn) {
+        if (players.length === 0) return;
+        const header = document.createElement('div');
+        header.className = 'group-header';
+        header.textContent = title;
+        fragment.appendChild(header);
+        players.forEach(p => {
+          const item = renderFn(p);
+          fragment.appendChild(item);
+        });
+      }
+
+      // ---- Discord Members ----
+      renderGroup('Discord Members', discordPlayers, (p) => {
+        const item = document.createElement('div');
+        item.className = 'selector-player';
+
+        const avatar = document.createElement('img');
+        avatar.src = p.avatar || `https://cdn.discordapp.com/embed/avatars/0.png`;
+        avatar.onerror = function() {
+          this.onerror = null;
+          this.src = `https://cdn.discordapp.com/embed/avatars/${Math.floor(Math.random() * 6)}.png`;
+        };
+        item.appendChild(avatar);
+
+        const info = document.createElement('div');
+        info.className = 'info';
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = p.name;
+        info.appendChild(name);
+
+        if (p.might) {
+          const sub = document.createElement('div');
+          sub.style.fontSize = '0.8rem';
+          sub.style.color = 'var(--text-muted)';
+          sub.textContent = `${formatMight(p.might)} Might`;
+          info.appendChild(sub);
+        }
+
+        // Check garrison – now using discordId
+        getPlayerGarrison('discord', p.discordId).then(existing => {
+          if (existing) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'assigned-info';
+            statusDiv.innerHTML = `<i class="bi bi-pin-map"></i> Garrisoned: ${existing.buildingName} • Slot ${existing.slot+1}`;
+            info.appendChild(statusDiv);
+
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'move-btn';
+            moveBtn.textContent = 'Move';
+            moveBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              try {
+                const delRes = await fetch(`${API_BASE}/garrison/${existing.buildingId}/${existing.slot}`, {
+                  method: 'DELETE',
+                  headers: { 'x-csrf-token': csrfToken }
+                });
+                if (delRes.ok) {
+                  await assignPlayer(selectedBuildingId, selectedSlot, 'discord', p.discordId, p.name, p.might, false);
+                  closePlayerSelector();
+                  await refreshDataAndUI(selectedBuildingId);
+                } else {
+                  const err = await delRes.json();
+                  if (window.showToast) window.showToast('error', err.error || 'Failed to move');
+                }
+              } catch (e) {
+                if (window.showToast) window.showToast('error', 'Network error');
+              }
+            });
+            item.appendChild(moveBtn);
+          } else {
+            item.addEventListener('click', () => {
+              assignPlayer(selectedBuildingId, selectedSlot, 'discord', p.discordId, p.name, p.might, true);
+              closePlayerSelector();
+            });
+          }
+        });
+
+        item.appendChild(info);
+        return item;
+      });
+
+      // ---- External Players ----
+      renderGroup('External Players', externalPlayersFiltered, (p) => {
+        const item = document.createElement('div');
+        item.className = 'selector-player';
+
+        const avatar = document.createElement('img');
+        avatar.src = '/images/avatars/external.png';
+        avatar.style.background = 'var(--glass-strong)';
+        item.appendChild(avatar);
+
+        const info = document.createElement('div');
+        info.className = 'info';
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = p.name + ' (External)';
+        info.appendChild(name);
+
+        if (p.might) {
+          const sub = document.createElement('div');
+          sub.style.fontSize = '0.8rem';
+          sub.style.color = 'var(--text-muted)';
+          sub.textContent = `${formatMight(p.might)} Might`;
+          info.appendChild(sub);
+        }
+
+        getPlayerGarrison('external', p.id).then(existing => {
+          if (existing) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'assigned-info';
+            statusDiv.innerHTML = `<i class="bi bi-pin-map"></i> Garrisoned: ${existing.buildingName} • Slot ${existing.slot+1}`;
+            info.appendChild(statusDiv);
+
+            const moveBtn = document.createElement('button');
+            moveBtn.className = 'move-btn';
+            moveBtn.textContent = 'Move';
+            moveBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              try {
+                const delRes = await fetch(`${API_BASE}/garrison/${existing.buildingId}/${existing.slot}`, {
+                  method: 'DELETE',
+                  headers: { 'x-csrf-token': csrfToken }
+                });
+                if (delRes.ok) {
+                  await assignPlayer(selectedBuildingId, selectedSlot, 'external', p.id, p.name, p.might, false);
+                  closePlayerSelector();
+                  await refreshDataAndUI(selectedBuildingId);
+                } else {
+                  const err = await delRes.json();
+                  if (window.showToast) window.showToast('error', err.error || 'Failed to move');
+                }
+              } catch (e) {
+                if (window.showToast) window.showToast('error', 'Network error');
+              }
+            });
+            item.appendChild(moveBtn);
+          } else {
+            item.addEventListener('click', () => {
+              assignPlayer(selectedBuildingId, selectedSlot, 'external', p.id, p.name, p.might, true);
+              closePlayerSelector();
+            });
+          }
+        });
+
+        item.appendChild(info);
+        return item;
+      });
+
+      selectorList.innerHTML = '';
+      selectorList.appendChild(fragment);
+    }
+
+    // ============================================================
+    // ASSIGN PLAYER (with Might Modal)
+    // ============================================================
+    function assignPlayer(buildingId, slot, playerType, id, username, might, showToast = true) {
+      if (might) {
+        return doAssignPlayer(buildingId, slot, playerType, id, username, might, showToast);
+      }
+      pendingAssignment = { buildingId, slot, playerType, id, username, showToast };
+      document.getElementById('mightModalTitle').textContent = `Enter Might for ${username || 'Player'}`;
+      document.getElementById('mightInput').value = '';
+      document.getElementById('mightModal').classList.add('open');
+    }
+
+    async function doAssignPlayer(buildingId, slot, playerType, id, username, might, showToast = true) {
+      const payload = { buildingId, slot, playerType };
+      if (playerType === 'discord') {
+        payload.userId = id;
+        payload.username = username;
+        payload.might = might;
+      } else {
+        payload.externalPlayerId = id;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/garrison`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          if (showToast && window.showToast) window.showToast('success', 'Player assigned');
+          await refreshDataAndUI(buildingId);
+        } else {
+          const err = await res.json();
+          if (window.showToast) window.showToast('error', err.error || 'Assignment failed');
+        }
+      } catch (e) {
+        if (window.showToast) window.showToast('error', 'Network error');
+      }
+    }
+
+    document.getElementById('mightAddBtn').addEventListener('click', function() {
+      const input = document.getElementById('mightInput');
+      const might = input.value.trim();
+      if (!might) { if (window.showToast) window.showToast('warning', 'Please enter a might value.'); return; }
+      const { buildingId, slot, playerType, id, username, showToast } = pendingAssignment;
+      doAssignPlayer(buildingId, slot, playerType, id, username, might, showToast);
+      pendingAssignment = null;
+      document.getElementById('mightModal').classList.remove('open');
+    });
+    document.getElementById('mightBackBtn').addEventListener('click', function() {
+      pendingAssignment = null;
+      document.getElementById('mightModal').classList.remove('open');
+    });
+    document.getElementById('mightModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        pendingAssignment = null;
+        this.classList.remove('open');
+      }
+    });
+
+    // ============================================================
+    // EXTERNAL PLAYER MODALS (Add & Manage)
+    // ============================================================
+    function openExternalPlayerModal() {
+      document.getElementById('externalPlayerModal').classList.add('open');
+      document.getElementById('ext-player-name').value = '';
+      document.getElementById('ext-discord-id').value = '';
+      document.getElementById('ext-might').value = '';
+    }
+    function closeExternalPlayerModal() {
+      document.getElementById('externalPlayerModal').classList.remove('open');
+    }
+    document.getElementById('external-player-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const player_name = document.getElementById('ext-player-name').value.trim();
+      const discord_id = document.getElementById('ext-discord-id').value.trim() || null;
+      const might = document.getElementById('ext-might').value.trim() || null;
+      if (!player_name) { if (window.showToast) window.showToast('warning', 'Player name is required'); return; }
+      try {
+        const res = await fetch(`${API_BASE}/external`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+          body: JSON.stringify({ player_name, discord_id, might })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          externalPlayers.push({ id: data.id, player_name, discord_id, might });
+          closeExternalPlayerModal();
+          if (selectorOverlay.classList.contains('open')) renderSelectorList(selectorSearch.value);
+          updateExportPreview();
+          if (window.showToast) window.showToast('success', 'External player added');
+        } else {
+          const err = await res.json();
+          if (window.showToast) window.showToast('error', err.error || 'Failed to add');
+        }
+      } catch (e) { if (window.showToast) window.showToast('error', 'Network error'); }
+    });
+
+    // ---- Manage External Players (redesigned) ----
+    function openExternalManagerModal() {
+      document.getElementById('externalManagerModal').classList.add('open');
+      renderExternalManagerList('');
+    }
+    function closeExternalManagerModal() {
+      document.getElementById('externalManagerModal').classList.remove('open');
+    }
+
+    let extManagerTimeout = null;
+    document.getElementById('externalManagerSearch').addEventListener('input', function() {
+      clearTimeout(extManagerTimeout);
+      extManagerTimeout = setTimeout(() => renderExternalManagerList(this.value), 200);
+    });
+
+    function renderExternalManagerList(query) {
+      const list = document.getElementById('externalManagerList');
+      const totalEl = document.getElementById('externalManagerTotal');
+      const search = (query || document.getElementById('externalManagerSearch').value).toLowerCase();
+
+      // Build assignment map
+      const assignmentMap = {};
+      for (const [buildingId, slots] of Object.entries(garrisonData)) {
+        const building = buildingsData.find(b => b.id === buildingId);
+        if (!building) continue;
+        slots.forEach(s => {
+          if (s.occupied && s.player?.type === 'external' && s.player.external_player_id) {
+            assignmentMap[s.player.external_player_id] = { buildingName: building.name, slot: s.slot };
+          }
+        });
+      }
+
+      const filtered = externalPlayers.filter(p =>
+        p.player_name.toLowerCase().includes(search) ||
+        (p.discord_id && p.discord_id.includes(search))
+      );
+
+      totalEl.textContent = `${filtered.length} player${filtered.length !== 1 ? 's' : ''}`;
+
+      if (filtered.length === 0) {
+        list.innerHTML = `
+          <div class="ext-empty-state">
+            <i class="bi bi-person-x"></i>
+            <h4>No External Players Found</h4>
+            <p>Add external players using the "Add External Player" button above.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      filtered.forEach((p, index) => {
+        const assigned = assignmentMap[p.id];
+        const avatar = generateAvatar(p.player_name);
+
+        const card = document.createElement('div');
+        card.className = 'ext-player-card';
+        card.dataset.id = p.id;
+        card.style.animation = 'fadeInUp 0.3s ease forwards';
+        card.style.animationDelay = (index * 0.05) + 's';
+
+        // Left side: avatar + info
+        const left = document.createElement('div');
+        left.className = 'left';
+
+        const avatarWrap = document.createElement('div');
+        avatarWrap.className = 'avatar-wrap';
+        avatarWrap.style.background = avatar.background;
+        avatarWrap.textContent = avatar.letter;
+        left.appendChild(avatarWrap);
+
+        const info = document.createElement('div');
+        info.className = 'info';
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = p.player_name;
+        info.appendChild(name);
+
+        const details = document.createElement('div');
+        details.className = 'details';
+        if (p.discord_id) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.innerHTML = `<i class="bi bi-discord"></i> ${p.discord_id}`;
+          details.appendChild(badge);
+        }
+        if (p.might) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = `⚔️ ${formatMight(p.might)}`;
+          details.appendChild(badge);
+        }
+        if (assigned) {
+          const badge = document.createElement('span');
+          badge.className = 'assigned-badge';
+          badge.textContent = `🏰 ${assigned.buildingName} (Slot ${assigned.slot+1})`;
+          details.appendChild(badge);
+        } else {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = 'Not assigned';
+          details.appendChild(badge);
+        }
+        info.appendChild(details);
+        left.appendChild(info);
+        card.appendChild(left);
+
+        // Right side: Delete button
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '<i class="bi bi-trash3"></i> Delete';
+        deleteBtn.addEventListener('click', () => confirmDeleteExternalPlayer(p, assigned, card));
+        actions.appendChild(deleteBtn);
+        card.appendChild(actions);
+
+        fragment.appendChild(card);
+
+        // Add divider after each card except last
+        if (index < filtered.length - 1) {
+          const divider = document.createElement('div');
+          divider.className = 'ext-divider';
+          fragment.appendChild(divider);
+        }
+      });
+
+      list.innerHTML = '';
+      list.appendChild(fragment);
+    }
+
+    async function confirmDeleteExternalPlayer(player, assignment, card) {
+      if (assignment) {
+        if (!confirm(`This player is currently assigned to ${assignment.buildingName} (Slot ${assignment.slot+1}).\nRemove & Delete?`)) return;
+        const buildingId = buildingsData.find(b => b.name === assignment.buildingName)?.id;
+        if (buildingId !== undefined) {
+          const delRes = await fetch(`${API_BASE}/garrison/${buildingId}/${assignment.slot}`, {
+            method: 'DELETE',
+            headers: { 'x-csrf-token': csrfToken }
+          });
+          if (!delRes.ok) { if (window.showToast) window.showToast('error', 'Failed to remove from garrison'); return; }
+          await fetchAllData();
+          if (currentBuildingId) await renderModal(currentBuildingId);
+          renderBuildings();
+          updateExportPreview();
+        }
+      } else {
+        if (!confirm(`Are you sure you want to permanently delete:\n\n${player.player_name}\n\nThis action cannot be undone.`)) return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/external/${player.id}`, {
+          method: 'DELETE',
+          headers: { 'x-csrf-token': csrfToken }
+        });
+        if (res.ok) {
+          externalPlayers = externalPlayers.filter(p => p.id !== player.id);
+          // Remove the card from DOM
+          if (card && card.parentNode) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(-20px)';
+            setTimeout(() => {
+              if (card.parentNode) card.remove();
+              // Update total count
+              const totalEl = document.getElementById('externalManagerTotal');
+              const remaining = externalPlayers.length;
+              totalEl.textContent = `${remaining} player${remaining !== 1 ? 's' : ''}`;
+              // If no players left, show empty state
+              if (remaining === 0) {
+                const list = document.getElementById('externalManagerList');
+                list.innerHTML = `
+                  <div class="ext-empty-state">
+                    <i class="bi bi-person-x"></i>
+                    <h4>No External Players Found</h4>
+                    <p>Add external players using the "Add External Player" button above.</p>
+                  </div>
+                `;
+              }
+            }, 250);
+          }
+          if (window.showToast) window.showToast('success', 'External Player deleted.');
+          if (selectorOverlay.classList.contains('open')) renderSelectorList(selectorSearch.value);
+          updateExportPreview();
+          if (currentBuildingId) await renderModal(currentBuildingId);
+          renderBuildings();
+        } else {
+          const err = await res.json();
+          if (window.showToast) window.showToast('error', err.error || 'Failed to delete');
+        }
+      } catch (e) { if (window.showToast) window.showToast('error', 'Network error'); }
+    }
+
+    // ============================================================
+    // REFRESH
+    // ============================================================
+    async function refreshDataAndUI(buildingId) {
+      await fetchAllData();
+      renderBuildings();
+      if (buildingId) await renderModal(buildingId);
+      updateExportPreview();
+    }
+
+    // ============================================================
+    // MIGHT FORMAT
+    // ============================================================
+    function formatMight(value) {
+      if (!value) return '';
+      const num = parseFloat(value.replace(/,/g, ''));
+      if (isNaN(num)) return value;
+      if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+      if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+      return num.toString();
+    }
+
+    // ============================================================
+    // EXPORT PREVIEW (throttled)
+    // ============================================================
+    let exportTimeout = null;
+
+    function updateExportPreview() {
+      clearTimeout(exportTimeout);
+      exportTimeout = setTimeout(() => {
+        const dateInput = document.getElementById('war-date');
+        const everyoneToggle = document.getElementById('everyone-toggle');
+        const date = dateInput.value;
+        const dateFormatted = date ? new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Unknown date';
+        const includeEveryone = everyoneToggle.checked;
+
+        let html = '';
+        if (includeEveryone) html += '@everyone\n\n';
+        html += `⚔️ WARBOARD - New Setup\n`;
+        html += `📅 Clan War: ${dateFormatted}\n\n`;
+
+        const exportData = buildExportDataFromState();
+
+        exportData.buildings.forEach(b => {
+          const color = BUILDING_COLORS[b.id] || 'var(--accent-cyan)';
+          html += `<div class="building-card ${b.id}" style="border-left-color: ${color};">`;
+          html += `<div class="building-header"><span style="color: ${color};">${b.name}</span> <span class="capacity-badge">(${b.filled}/${b.capacity})</span></div>`;
+          if (b.players.length === 0) {
+            html += `<div class="text-muted" style="font-size:0.8rem; font-style:italic;">_empty_</div>`;
+          } else {
+            b.players.forEach(p => {
+              html += `<div class="player-line">`;
+              html += `<span class="player-name">${p.displayName}</span>`;
+              if (p.might) html += `<span class="player-might">(${p.might})</span>`;
+              if (p.type === 'external') html += `<span class="player-external">(External)</span>`;
+              html += `</div>`;
+            });
+          }
+          html += `</div>`;
+        });
+
+        html += `<div style="font-weight:600; margin-top:8px;">TOTAL: ${exportData.totalFilled}/${exportData.totalCapacity} players</div>`;
+
+        exportPreview.innerHTML = html;
+        copyBtn.disabled = false;
+      }, 150);
+    }
+
+    function buildExportDataFromState() {
+      const buildingOrder = [
+        'boathouse', 'docks', 'eastern_bridge', 'central_bridge', 'western_bridge',
+        'main_gate', 'scriptorium', 'laboratory', 'tower_of_elements', 'tower_of_foresight', 'citadel'
+      ];
+      const exportBuildings = [];
+      let totalFilled = 0, totalCapacity = 0;
+
+      buildingOrder.forEach(id => {
+        const building = buildingsData.find(b => b.id === id);
+        if (!building) return;
+        const slots = garrisonData[id] || [];
+        const players = slots.filter(s => s.occupied).map(s => {
+          const p = s.player;
+          let displayName = p.username || 'Unknown';
+          let mention = '';
+          let might = p.might || null;
+          let type = p.type || 'discord';
+          if (type === 'external') {
+            displayName = p.username || 'External';
+            mention = p.discordId ? `<@${p.discordId}>` : displayName;
+          } else {
+            const discordUser = playersData.find(d => d.discordId === p.discordId);
+            mention = discordUser ? `<@${p.discordId}>` : '';
+          }
+          return { displayName, mention, might: might ? formatMight(might) : null, type };
+        });
+
+        exportBuildings.push({
+          id: building.id,
+          name: building.name,
+          capacity: building.capacity,
+          filled: players.length,
+          players
+        });
+        totalFilled += players.length;
+        totalCapacity += building.capacity;
+      });
+
+      return { buildings: exportBuildings, totalFilled, totalCapacity };
+    }
+
+    // ============================================================
+    // COPY EXPORT
+    // ============================================================
+    function copyExport() {
+      const dateInput = document.getElementById('war-date');
+      const everyoneToggle = document.getElementById('everyone-toggle');
+      const date = dateInput.value;
+      const dateFormatted = date ? new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Unknown date';
+      const includeEveryone = everyoneToggle.checked;
+
+      let lines = [];
+      if (includeEveryone) lines.push('@everyone');
+      lines.push('');
+      lines.push('⚔️ WARBOARD - New Setup');
+      lines.push(`📅 Clan War: ${dateFormatted}`);
+      lines.push('');
+
+      const exportData = buildExportDataFromState();
+      exportData.buildings.forEach(b => {
+        lines.push(`## ${b.name} (${b.filled}/${b.capacity})`);
+        if (b.players.length === 0) lines.push('_(empty)_');
+        else b.players.forEach(p => lines.push(p.mention || p.displayName));
+        lines.push('');
+      });
+      lines.push(`TOTAL: ${exportData.totalFilled}/${exportData.totalCapacity} players`);
+
+      const exportText = lines.join('\n');
+
+      if (!navigator.clipboard) {
+        const textarea = document.createElement('textarea');
+        textarea.value = exportText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); if (window.showToast) window.showToast('success', 'Warboard setup copied.'); } catch (e) { if (window.showToast) window.showToast('error', 'Failed to copy.'); }
+        document.body.removeChild(textarea);
+        return;
+      }
+      navigator.clipboard.writeText(exportText).then(() => {
+        if (window.showToast) window.showToast('success', 'Warboard setup copied.');
+      }).catch(() => {
+        if (window.showToast) window.showToast('error', 'Failed to copy.');
+      });
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    async function init() {
+      await preloadImages();
+      const data = await fetchAllData();
+      if (!data) return;
+      renderBuildings();
+      updateExportPreview();
+
+      const map = document.getElementById('clanMap');
+      if (map) map.classList.add('ready');
+
+      const loader = document.getElementById('hc-loading-screen');
+      if (loader) {
+        loader.classList.add('fade-out');
+        setTimeout(() => { if (loader.parentNode) loader.remove(); }, 500);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      document.getElementById('war-date').value = `${year}-${month}-${day}`;
+
+      document.getElementById('war-date').addEventListener('change', updateExportPreview);
+      document.getElementById('everyone-toggle').addEventListener('change', updateExportPreview);
+      document.getElementById('copy-export-btn').addEventListener('click', copyExport);
+
+      closePlayerSelector();
+      document.getElementById('buildingModal').classList.remove('open');
+      document.getElementById('externalPlayerModal').classList.remove('open');
+      document.getElementById('externalManagerModal').classList.remove('open');
+
+      init();
+    });
+  </script>
+</body>
+</html>

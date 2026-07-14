@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Attack Planning' }) %>
+  <link rel="stylesheet" href="/css/attack-plans.css" />
+  <style>
+    .ap-page { max-width: 1240px; margin: 0 auto; padding: 20px 24px; }
+    .ap-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: var(--radius); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); padding: 20px 22px; }
+    .ap-btn-primary { background: linear-gradient(90deg, var(--accent-blurple), var(--accent-purple)); color: #fff; border: none; }
+    .ap-btn-primary:hover { box-shadow: 0 4px 18px rgba(88, 101, 242, 0.3); }
+    .ap-btn-ghost { background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-primary); }
+    .ap-btn-ghost:hover { background: var(--glass-strong); }
+    .ap-btn-danger { background: linear-gradient(135deg, var(--danger, #ff6b6b), #c0392b); color: #fff; border: none; padding: 10px 18px; border-radius: 12px; font-weight: 600; transition: transform 0.15s, box-shadow 0.15s; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .ap-btn-danger:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255, 107, 107, 0.4); }
+    .ap-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .ap-assignment-group { font-size: 0.75rem; margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+    .ap-badge-attack { background: var(--accent-cyan, #4fd1ff); color: #000; padding: 0 8px; border-radius: 12px; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; }
+    .ap-badge-backup { background: var(--accent-amber, #ffb454); color: #000; padding: 0 8px; border-radius: 12px; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; }
+    .ap-building-name { background: var(--glass); padding: 0 6px; border-radius: 6px; color: var(--text-primary); font-size: 0.7rem; }
+
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .bi-arrow-repeat.spin { display: inline-block; animation: spin 1s linear infinite; }
+
+    .ap-slot-remove { background: var(--danger, #ff6b6b); color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s, transform 0.1s; align-self: flex-end; }
+    .ap-slot-remove:hover { background: #c0392b; }
+    .ap-slot-remove:active { transform: scale(0.95); }
+    .ap-table-wrap { overflow-x: auto; }
+    .ap-info, .ap-slot-name, .ap-discord-id, .ap-assignments, .ap-player-result { word-wrap: break-word; overflow-wrap: break-word; max-width: 100%; }
+    .ap-slot-inputs { width: 100%; }
+    .ap-input { width: 100%; box-sizing: border-box; }
+
+    @media (max-width: 600px) {
+      .ap-modal-overlay { padding: 10px; }
+      .ap-modal-overlay .ap-modal { max-width: 100%; max-height: 85vh; }
+      .ap-modal-header { padding: 12px 16px; }
+      .ap-modal-search { padding: 8px 12px; }
+      .ap-modal-search input { font-size: 0.9rem; }
+      .ap-player-result { padding: 10px 12px; gap: 10px; }
+      .ap-player-result .ap-avatar { width: 40px; height: 40px; }
+      .ap-slot-name { font-size: 0.9rem; }
+      .ap-select-btn { font-size: 0.7rem; padding: 3px 12px; }
+      .ap-assignments { font-size: 0.7rem; }
+      .ap-btn-danger { padding: 8px 14px; font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'attack-plans' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <main class="page-content">
+        <div class="ap-page">
+          <!-- Header -->
+          <div class="glass-card ap-header">
+            <div>
+              <h1 class="ap-title">⚔️ Attack Planning</h1>
+              <p class="ap-subtitle">Assign attackers and backup players for each building.</p>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+              <div class="ap-building-select">
+                <label for="ap-building">Select Building</label>
+                <select class="ap-select" id="ap-building"></select>
+              </div>
+              <button class="ap-btn ap-btn-danger" id="ap-clear-all">
+                <i class="bi bi-trash3"></i> Clear All
+              </button>
+            </div>
+          </div>
+
+          <!-- Main layout -->
+          <div class="ap-layout">
+            <div class="ap-main">
+              <!-- Attack slots -->
+              <div class="glass-card ap-card">
+                <div class="ap-card-title-row">
+                  <h2 class="ap-card-title">Attackers</h2>
+                  <span class="text-muted" style="font-size:0.85rem;" id="ap-filled-count">0 / 0</span>
+                </div>
+                <div class="ap-slots" id="ap-slots"></div>
+              </div>
+
+              <!-- Backups -->
+              <div class="glass-card ap-card">
+                <div class="ap-card-title-row">
+                  <h2 class="ap-card-title">Backup Players</h2>
+                  <button class="ap-btn ap-btn-primary" id="ap-add-backup">+ Add Backup</button>
+                </div>
+                <div class="ap-backups" id="ap-backups"></div>
+              </div>
+
+              <!-- Overview table (read-only summary) -->
+              <div class="glass-card ap-card">
+                <h2 class="ap-card-title">Overview</h2>
+                <div class="ap-table-wrap">
+                  <table class="ap-table">
+                    <thead><tr><th>Slot</th><th>Player</th><th>Opponent Might</th></tr></thead>
+                    <tbody id="ap-table-body"></tbody>
+                  </table>
+                </div>
+                <div class="ap-table-backups">
+                  <h3>Backups</h3>
+                  <ul id="ap-table-backups-list"></ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Preview & copy (always simple view) -->
+            <div class="ap-preview-col">
+              <div class="glass-card ap-card">
+                <div class="ap-card-title-row">
+                  <h2 class="ap-card-title">📋 Discord Preview</h2>
+                  <button class="ap-btn ap-btn-ghost" id="ap-copy">
+                    <i class="bi bi-clipboard"></i> Copy
+                  </button>
+                </div>
+                <pre class="ap-preview-text" id="ap-preview-text"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Player modal -->
+  <div class="ap-modal-overlay" id="ap-player-modal" hidden>
+    <div class="glass-card ap-modal">
+      <div class="ap-modal-header"><h3>Select Player</h3><button class="ap-modal-close">&times;</button></div>
+      <div class="ap-modal-search"><i class="bi bi-search"></i><input type="text" id="ap-player-search" placeholder="Search players..." autocomplete="off" /></div>
+      <ul class="ap-player-results" id="ap-player-results"></ul>
+    </div>
+  </div>
+
+  <!-- Clear All Confirmation Modal -->
+  <div class="ap-modal-overlay" id="ap-clear-modal" hidden>
+    <div class="glass-card ap-modal" style="max-width:440px;">
+      <div class="ap-modal-header" style="background:var(--danger, #ff6b6b);">
+        <h3><i class="bi bi-exclamation-triangle"></i> WARNING</h3>
+        <button class="ap-modal-close ap-clear-modal-close">&times;</button>
+      </div>
+      <div style="padding:20px;">
+        <p style="color:var(--text-primary);">This will remove <strong>ALL</strong> Attack Planning data.</p>
+        <p style="color:var(--text-muted); font-size:0.9rem;">This action cannot be undone.</p>
+        <p style="margin-top:16px; color:var(--text-muted);">Type <strong>CONFIRM</strong> below to continue.</p>
+        <input type="text" id="ap-clear-confirm-input" placeholder="CONFIRM" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); color:var(--text-primary); margin:8px 0 16px; box-sizing:border-box;">
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="ap-btn ap-btn-ghost" id="ap-clear-cancel">Cancel</button>
+          <button class="ap-btn ap-btn-danger" id="ap-clear-delete-btn" disabled style="opacity:0.5; cursor:not-allowed;">Delete All</button>
+        </div>
+        <div id="ap-clear-loading" style="display:none; text-align:center; margin-top:10px; color:var(--text-muted);">
+          <i class="bi bi-arrow-repeat spin"></i> Clearing Attack Planning...
+        </div>
+        <div id="ap-clear-error" style="display:none; color:var(--danger); margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+  <script>
+    window.__ATTACK_PLANNING__ = { csrfToken: '<%= csrfToken %>' };
+  </script>
+  <script src="/js/attack-plans.js"></script>
+</body>
+</html>

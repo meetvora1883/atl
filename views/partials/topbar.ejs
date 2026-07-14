@@ -1,0 +1,73 @@
+<header class="topbar">
+  <button id="sidebar-toggle-btn" class="icon-btn" aria-label="Toggle sidebar">
+    <i class="bi bi-list"></i>
+  </button>
+
+  <button id="cmdk-trigger" class="cmdk-trigger">
+    <i class="bi bi-search"></i>
+    <span>Search or jump to...</span>
+    <kbd>Ctrl K</kbd>
+  </button>
+
+  <div class="topbar-right">
+    <button id="notif-bell" class="icon-btn" aria-label="Notifications">
+      <i class="bi bi-bell"></i>
+      <span id="notif-count" class="notif-count" style="display:none;">0</span>
+    </button>
+
+    <!-- User Menu -->
+    <div class="user-menu">
+      <button id="user-menu-btn" class="user-menu-btn">
+        <% if (user && user.avatar) { %>
+          <img src="<%= user.avatar %>" class="user-avatar-sm" alt="" />
+        <% } else if (user) { %>
+          <span class="user-avatar-sm user-avatar-fallback"><%= user.username.charAt(0).toUpperCase() %></span>
+        <% } else { %>
+          <span class="user-avatar-sm user-avatar-fallback">?</span>
+        <% } %>
+        <span class="user-menu-name"><%= user ? user.username : 'Guest' %></span>
+        <i class="bi bi-chevron-down" style="font-size:0.7rem;"></i>
+      </button>
+      <div class="user-menu-dropdown" id="user-menu-dropdown">
+        <a href="/profile"><i class="bi bi-person"></i> Profile</a>
+        <a href="/sessions"><i class="bi bi-laptop"></i> Sessions</a>
+        <a href="/settings"><i class="bi bi-gear"></i> Settings</a>
+
+        <!-- Install App button (hidden initially) -->
+        <button id="installAppBtn" hidden>
+          <i class="bi bi-download"></i> Install App
+        </button>
+
+        <div class="nav-divider"></div>
+        <form action="/auth/logout" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <button type="submit"><i class="bi bi-box-arrow-right"></i> Log out</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Notification Panel -->
+<div id="notif-panel" class="notif-panel">
+  <div class="flex-between" style="margin-bottom: 12px;">
+    <strong>Notifications</strong>
+    <button id="notif-mark-all" class="btn btn-ghost btn-sm">Mark all read</button>
+  </div>
+  <div id="notif-list"><p class="text-muted" style="font-size:0.85rem;">Loading...</p></div>
+</div>
+
+<!-- Command Palette -->
+<div id="cmdk-overlay" class="cmdk-overlay">
+  <div class="cmdk-box glass-strong">
+    <div class="cmdk-input-wrap">
+      <i class="bi bi-search"></i>
+      <input id="cmdk-input" type="text" placeholder="Type a command or search..." autocomplete="off" />
+      <kbd>Esc</kbd>
+    </div>
+    <div id="cmdk-results" class="cmdk-results"></div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container"></div>

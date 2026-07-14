@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Dashboard' }) %>
+</head>
+<body>
+  <%- include('partials/loading-screen') %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'dashboard' }) %>
+    <div class="main-wrap">
+      <%- include('partials/topbar') %>
+      <main class="page-content">
+        <div class="container">
+          <div style="margin-bottom: 32px;">
+            <h1 style="margin:0; font-size: 1.8rem;">
+              <%= t['dashboard.welcome'] || 'Welcome back' %>, <%= user.username %>
+            </h1>
+            <p class="text-muted" style="margin: 6px 0 0;">
+              <%= t['dashboard.subtitle'] || "Let's see what's happening in your community." %>
+            </p>
+          </div>
+
+          <div class="grid grid-stats mb-24">
+            <div class="glass card stat-card">
+              <div class="stat-label"><span class="stat-icon"><i class="bi bi-people"></i></span><%= t['dashboard.total_members'] || 'Total Members' %></div>
+              <div class="stat-value" data-countup="<%= stats.totalUsers %>">0</div>
+            </div>
+            <div class="glass card stat-card">
+              <div class="stat-label"><span class="stat-icon"><i class="bi bi-lightning"></i></span><%= t['dashboard.active_sessions'] || 'Active Sessions' %></div>
+              <div class="stat-value" data-countup="<%= stats.activeSessions %>">0</div>
+            </div>
+            <div class="glass card stat-card">
+              <div class="stat-label"><span class="stat-icon"><i class="bi bi-megaphone"></i></span><%= t['dashboard.announcements'] || 'Announcements' %></div>
+              <div class="stat-value" data-countup="<%= stats.announcements %>">0</div>
+            </div>
+            <div class="glass card stat-card">
+              <div class="stat-label"><span class="stat-icon"><i class="bi bi-calendar"></i></span><%= t['dashboard.upcoming_events'] || 'Upcoming Events' %></div>
+              <div class="stat-value" data-countup="<%= stats.events %>">0</div>
+            </div>
+          </div>
+
+          <div class="grid grid-2 mb-24">
+            <div class="glass card">
+              <h3 class="section-title"><%= t['dashboard.latest_announcements'] || 'Latest Announcements' %></h3>
+              <% if (announcements.length === 0) { %>
+                <p class="text-muted" style="font-size: 0.85rem;"><%= t['dashboard.no_announcements'] || 'No announcements yet.' %></p>
+              <% } else { %>
+                <% announcements.forEach(a => { %>
+                  <div class="list-item">
+                    <strong><%= a.title %></strong>
+                    <p class="text-muted" style="margin: 6px 0 0; font-size: 0.85rem;"><%= a.body.substring(0, 120) %>...</p>
+                    <div class="meta" style="margin-top: 8px;">
+                      <span class="format-date" data-date="<%= a.created_at %>"></span>
+                    </div>
+                  </div>
+                <% }) %>
+              <% } %>
+            </div>
+            <div class="glass card">
+              <h3 class="section-title"><%= t['dashboard.your_notifications'] || 'Your Notifications' %></h3>
+              <% if (notifications.length === 0) { %>
+                <p class="text-muted" style="font-size: 0.85rem;"><%= t['dashboard.all_caught_up'] || 'All caught up!' %></p>
+              <% } else { %>
+                <% notifications.slice(0, 5).forEach(n => { %>
+                  <div class="list-item">
+                    <strong><%= n.title %></strong>
+                    <p class="text-muted" style="margin: 4px 0 0; font-size: 0.8rem;"><%= n.message %></p>
+                    <div class="meta" style="margin-top: 4px; font-size: 0.7rem;">
+                      <span class="format-date" data-date="<%= n.created_at %>"></span>
+                    </div>
+                  </div>
+                <% }) %>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="glass card">
+            <h3 class="section-title"><%= t['dashboard.server_health'] || 'Server Health' %></h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px;">
+              <div style="padding: 12px; background: var(--glass); border-radius: 10px;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"><%= t['dashboard.api_status'] || 'API Status' %></div>
+                <div style="color: var(--accent-green); font-weight: 600;"><%= t['dashboard.operational'] || '✓ Operational' %></div>
+              </div>
+              <div style="padding: 12px; background: var(--glass); border-radius: 10px;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"><%= t['dashboard.database_status'] || 'Database' %></div>
+                <div style="color: var(--accent-green); font-weight: 600;"><%= t['dashboard.connected'] || '✓ Connected' %></div>
+              </div>
+              <div style="padding: 12px; background: var(--glass); border-radius: 10px;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;"><%= t['dashboard.bot_status'] || 'Bot Status' %></div>
+                <div style="color: var(--accent-green); font-weight: 600;"><%= t['dashboard.online'] || '✓ Online' %></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <%- include('partials/scripts') %>
+</body>
+</html>
