@@ -1,6 +1,5 @@
 /**
  * pwa.js – Production-ready PWA with toast notifications
- * Uses the existing window.showToast from app-shell.js
  */
 console.log('[PWA] Initializing...');
 
@@ -31,26 +30,29 @@ function isAppInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Reliable secure‑origin check (HTTPS or localhost)
+// Reliable secure‑origin check
 function isSecureContext() {
+  // Check protocol and hostname
   const protocol = window.location.protocol;
   const hostname = window.location.hostname;
-  return protocol === 'https:' ||
-         hostname === 'localhost' ||
-         hostname === '127.0.0.1';
+  const isHttps = protocol === 'https:';
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  const isSecure = isHttps || isLocalhost;
+  console.log('[PWA] Secure context check:', { protocol, hostname, isSecure });
+  return isSecure;
 }
 
-// Hide button if:
-// - already installed, or
-// - not a secure context (HTTP + non‑localhost)
-if ((isAppInstalled() || !isSecureContext()) && installBtn) {
-  installBtn.hidden = true;
-  if (!isSecureContext()) {
-    console.warn('[PWA] Not a secure context – install disabled.');
+// Hide button if not secure or already installed
+if (installBtn) {
+  if (isAppInstalled() || !isSecureContext()) {
+    installBtn.hidden = true;
+    if (!isSecureContext()) {
+      console.warn('[PWA] Not a secure context – install disabled.');
+    }
   }
 }
 
-// Show button when browser fires beforeinstallprompt (only on secure origins)
+// Show button when browser fires beforeinstallprompt
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
@@ -63,22 +65,15 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // Click handler
 if (installBtn) {
   installBtn.addEventListener('click', async () => {
-    // 1. First, check if we are in a secure context
     if (!isSecureContext()) {
       window.showToast('error', 'HTTPS Required', 'App installation requires a secure HTTPS connection.');
-      return; // exit early – no spinner, no preparing toast
+      return;
     }
 
-    // 2. Disable button and show spinner
     installBtn.disabled = true;
     installBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Installing...';
+    window.showToast('info', 'Preparing Installation', 'The installation dialog is opening...');
 
-    // 3. Show preparing toast (only now that we know it's secure)
-    if (typeof window.showToast === 'function') {
-      window.showToast('info', 'Preparing Installation', 'The installation dialog is opening...');
-    }
-
-    // 4. Check if prompt is available
     if (!deferredPrompt) {
       let msg = '';
       if (isAppInstalled()) {
@@ -93,12 +88,10 @@ if (installBtn) {
       return;
     }
 
-    // 5. Show the native prompt
     try {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       deferredPrompt = null;
-
       if (outcome === 'accepted') {
         window.showToast('success', 'Installation Successful', '🎉 HyperCity Dashboard installed successfully! You can now launch it directly from your Home Screen or Desktop.');
         installBtn.hidden = true;
@@ -109,7 +102,6 @@ if (installBtn) {
       console.error('[PWA] Install error', err);
       window.showToast('error', 'Installation Failed', 'Installation failed. Please try again later.');
     } finally {
-      // Re‑enable button if still visible
       if (!installBtn.hidden) {
         installBtn.disabled = false;
         installBtn.innerHTML = '<i class="bi bi-download"></i> Install App';
@@ -118,12 +110,10 @@ if (installBtn) {
   });
 }
 
-// Listen for successful installation (catch‑all)
 window.addEventListener('appinstalled', () => {
   if (installBtn) installBtn.hidden = true;
 });
 
-// Detect standalone mode on startup and after changes
 function checkInstalledState() {
   if (isAppInstalled() && installBtn) installBtn.hidden = true;
 }
