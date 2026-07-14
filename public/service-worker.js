@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026-07-14';
+const CACHE_VERSION = '2026-07-15';
 const CACHE_NAME = `hypercity-cache-${CACHE_VERSION}`;
 const MAX_CACHE_ITEMS = 200;
 
