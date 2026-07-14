@@ -31,8 +31,13 @@ function isAppInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
+// Reliable secure‑origin check (HTTPS or localhost)
 function isSecureContext() {
-  return window.isSecureContext === true;
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return protocol === 'https:' ||
+         hostname === 'localhost' ||
+         hostname === '127.0.0.1';
 }
 
 // Hide button if:
@@ -55,7 +60,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 });
 
-// Click handler – with HTTP check first
+// Click handler
 if (installBtn) {
   installBtn.addEventListener('click', async () => {
     // 1. First, check if we are in a secure context
