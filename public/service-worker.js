@@ -1,16 +1,25 @@
 const CACHE_VERSION = '2026-07-14';
 const CACHE_NAME = `hypercity-cache-${CACHE_VERSION}`;
 const MAX_CACHE_ITEMS = 200;
-const CORE_ASSETS = ['/', '/offline.html', '/manifest.json'];
 
+// Only cache the offline page and manifest – NOT the root
+const CORE_ASSETS = [
+  '/offline.html',
+  '/manifest.json'
+];
+
+// ----------------------------------------------------------------------
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => Promise.allSettled(CORE_ASSETS.map(url => cache.add(url).catch(err => console.warn(`[SW] Failed cache ${url}`, err)))))
+      .then(cache => Promise.allSettled(
+        CORE_ASSETS.map(url => cache.add(url).catch(err => console.warn(`[SW] Failed cache ${url}`, err)))
+      ))
       .then(() => self.skipWaiting())
   );
 });
 
+// ----------------------------------------------------------------------
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -20,15 +29,29 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ----------------------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/socket.io/')) {
+
+  // 1. Never cache API, auth, or WebSocket traffic
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/auth/') ||
+    url.pathname.startsWith('/socket.io/')
+  ) {
     return event.respondWith(fetch(event.request));
   }
+
+  // 2. Navigation (HTML pages) – network first, fallback to offline.html
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match('/offline.html')));
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match('/offline.html'))
+    );
     return;
   }
+
+  // 3. Static assets – cache first, with dynamic caching
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
       if (response && response.ok && response.type === 'basic' && isStaticAsset(url) && !hasNoStoreCacheControl(response)) {
@@ -37,12 +60,16 @@ self.addEventListener('fetch', (event) => {
       }
       return response;
     }).catch(() => {
-      if (isImageRequest(url)) return caches.match('/icons/placeholder-image.png').then(fallback => fallback || new Response('', { status: 404 }));
+      if (isImageRequest(url)) {
+        return caches.match('/icons/placeholder-image.png').then(fallback => fallback || new Response('', { status: 404 }));
+      }
       return new Response('Resource not available', { status: 404 });
     }))
   );
 });
 
+// ----------------------------------------------------------------------
+// Helpers (unchanged)
 function isStaticAsset(url) {
   if (url.pathname === '/manifest.json') return true;
   if (url.pathname.endsWith('.json')) return false;
