@@ -1,5 +1,6 @@
 /**
- * pwa.js – Production-ready PWA with toast notifications
+ * pwa.js – Final production version
+ * Uses beforeinstallprompt as the single source of truth.
  */
 console.log('[PWA] Initializing...');
 
@@ -30,34 +31,16 @@ function isAppInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Secure‑origin check: HTTPS or localhost only – ignores mixed‑content warnings
-function isSecureContext() {
-  const protocol = window.location.protocol;
-  const hostname = window.location.hostname;
-  return protocol === 'https:' ||
-         hostname === 'localhost' ||
-         hostname === '127.0.0.1' ||
-         hostname === '0.0.0.0';
-}
-
-// Debug logs
-console.log('[PWA] Protocol:', window.location.protocol);
-console.log('[PWA] Hostname:', window.location.hostname);
-console.log('[PWA] Secure (custom):', isSecureContext());
-
-// Hide button if already installed or not secure
-if ((isAppInstalled() || !isSecureContext()) && installBtn) {
+// Hide button if already installed
+if (isAppInstalled() && installBtn) {
   installBtn.hidden = true;
-  if (!isSecureContext()) {
-    console.warn('[PWA] Not a secure context – install disabled.');
-  }
 }
 
-// Show button when browser fires beforeinstallprompt
+// Show button ONLY when beforeinstallprompt fires
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  if (installBtn && !isAppInstalled() && isSecureContext()) {
+  if (installBtn && !isAppInstalled()) {
     installBtn.hidden = false;
     console.log('[PWA] Install button shown');
   }
@@ -66,28 +49,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
 // Click handler
 if (installBtn) {
   installBtn.addEventListener('click', async () => {
-    if (!isSecureContext()) {
-      window.showToast('error', 'HTTPS Required', 'App installation requires a secure HTTPS connection.');
+    if (!deferredPrompt) {
+      if (isAppInstalled()) {
+        window.showToast('info', 'Already Installed', 'HyperCity Dashboard is already installed on this device.');
+      } else {
+        window.showToast('error', 'Installation Unavailable', 'Your browser does not support installing this application.');
+      }
       return;
     }
 
+    // Disable button, show spinner
     installBtn.disabled = true;
     installBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Installing...';
     window.showToast('info', 'Preparing Installation', 'The installation dialog is opening...');
-
-    if (!deferredPrompt) {
-      let msg = '';
-      if (isAppInstalled()) {
-        msg = 'HyperCity Dashboard is already installed on this device.';
-        window.showToast('info', 'Already Installed', msg);
-      } else {
-        msg = 'Your browser does not support installing this application.';
-        window.showToast('error', 'Installation Unavailable', msg);
-      }
-      installBtn.disabled = false;
-      installBtn.innerHTML = '<i class="bi bi-download"></i> Install App';
-      return;
-    }
 
     try {
       deferredPrompt.prompt();
@@ -111,10 +85,12 @@ if (installBtn) {
   });
 }
 
+// Listen for successful installation (catch‑all)
 window.addEventListener('appinstalled', () => {
   if (installBtn) installBtn.hidden = true;
 });
 
+// Detect standalone mode on startup and after changes
 function checkInstalledState() {
   if (isAppInstalled() && installBtn) installBtn.hidden = true;
 }
