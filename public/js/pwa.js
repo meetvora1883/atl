@@ -30,13 +30,8 @@ function isAppInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Robust secure‑origin check
+// Secure‑origin check: HTTPS or localhost only – ignores mixed‑content warnings
 function isSecureContext() {
-  // 1. Use browser's built‑in if available (most reliable)
-  if (window.isSecureContext !== undefined) {
-    return window.isSecureContext;
-  }
-  // 2. Fallback to protocol + hostname check
   const protocol = window.location.protocol;
   const hostname = window.location.hostname;
   return protocol === 'https:' ||
@@ -48,12 +43,9 @@ function isSecureContext() {
 // Debug logs
 console.log('[PWA] Protocol:', window.location.protocol);
 console.log('[PWA] Hostname:', window.location.hostname);
-console.log('[PWA] Secure context (browser):', window.isSecureContext);
-console.log('[PWA] Secure context (custom):', isSecureContext());
+console.log('[PWA] Secure (custom):', isSecureContext());
 
-// Hide button if:
-// - already installed, or
-// - not a secure context
+// Hide button if already installed or not secure
 if ((isAppInstalled() || !isSecureContext()) && installBtn) {
   installBtn.hidden = true;
   if (!isSecureContext()) {
@@ -61,7 +53,7 @@ if ((isAppInstalled() || !isSecureContext()) && installBtn) {
   }
 }
 
-// Show button when browser fires beforeinstallprompt (only on secure origins)
+// Show button when browser fires beforeinstallprompt
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
