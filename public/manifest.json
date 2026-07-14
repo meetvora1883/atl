@@ -13,20 +13,6 @@
   "theme_color": "#0a0716",
   "prefer_related_applications": false,
   "categories": ["productivity"],
-  "screenshots": [
-    {
-      "src": "/icons/screenshot-mobile.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/icons/screenshot-desktop.png",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
-  ],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
