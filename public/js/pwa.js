@@ -1,6 +1,5 @@
 /**
- * pwa.js – Final production version
- * Uses beforeinstallprompt as the single source of truth.
+ * pwa.js – Production PWA with robust install button hiding
  */
 console.log('[PWA] Initializing...');
 
@@ -31,22 +30,33 @@ function isAppInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Hide button if already installed
-if (isAppInstalled() && installBtn) {
-  installBtn.hidden = true;
+// --- Immediately hide if already installed ---
+if (installBtn) {
+  if (isAppInstalled()) {
+    installBtn.hidden = true;
+    installBtn.style.display = 'none'; // extra safety
+    console.log('[PWA] Button hidden (standalone mode)');
+  }
 }
 
-// Show button ONLY when beforeinstallprompt fires
+// --- beforeinstallprompt: show only if NOT installed ---
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
   if (installBtn && !isAppInstalled()) {
     installBtn.hidden = false;
+    installBtn.style.display = ''; // restore if hidden
     console.log('[PWA] Install button shown');
+  } else {
+    // If installed, hide again (just in case)
+    if (installBtn) {
+      installBtn.hidden = true;
+      installBtn.style.display = 'none';
+    }
   }
 });
 
-// Click handler
+// --- Click handler (unchanged) ---
 if (installBtn) {
   installBtn.addEventListener('click', async () => {
     if (!deferredPrompt) {
@@ -58,7 +68,6 @@ if (installBtn) {
       return;
     }
 
-    // Disable button, show spinner
     installBtn.disabled = true;
     installBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Installing...';
     window.showToast('info', 'Preparing Installation', 'The installation dialog is opening...');
@@ -70,6 +79,7 @@ if (installBtn) {
       if (outcome === 'accepted') {
         window.showToast('success', 'Installation Successful', '🎉 HyperCity Dashboard installed successfully! You can now launch it directly from your Home Screen or Desktop.');
         installBtn.hidden = true;
+        installBtn.style.display = 'none';
       } else {
         window.showToast('warning', 'Installation Cancelled', 'Installation was cancelled. You can install HyperCity Dashboard anytime from the profile menu.');
       }
@@ -85,21 +95,37 @@ if (installBtn) {
   });
 }
 
-// Listen for successful installation (catch‑all)
+// --- appinstalled event ---
 window.addEventListener('appinstalled', () => {
-  if (installBtn) installBtn.hidden = true;
+  if (installBtn) {
+    installBtn.hidden = true;
+    installBtn.style.display = 'none';
+    console.log('[PWA] Button hidden after installation');
+  }
 });
 
-// Detect standalone mode on startup and after changes
+// --- Continuous detection ---
 function checkInstalledState() {
-  if (isAppInstalled() && installBtn) installBtn.hidden = true;
+  if (isAppInstalled() && installBtn) {
+    installBtn.hidden = true;
+    installBtn.style.display = 'none';
+    console.log('[PWA] Button hidden (standalone check)');
+  }
 }
+
+// Run on DOM ready, visibility change, and display-mode change
 document.addEventListener('DOMContentLoaded', checkInstalledState);
-const media = window.matchMedia('(display-mode: standalone)');
-if (media.addEventListener) media.addEventListener('change', checkInstalledState);
-else if (media.addListener) media.addListener(checkInstalledState);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') checkInstalledState();
 });
+const media = window.matchMedia('(display-mode: standalone)');
+if (media.addEventListener) {
+  media.addEventListener('change', checkInstalledState);
+} else if (media.addListener) {
+  media.addListener(checkInstalledState);
+}
+
+// Also run a safety check after 2 seconds (covers late events)
+setTimeout(checkInstalledState, 2000);
 
 console.log('[PWA] Initialization complete.');
