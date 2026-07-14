@@ -5,7 +5,7 @@ const http = require('http');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+// const SQLiteStore = require('connect-sqlite3')(session);
 const { Server } = require('socket.io');
 const { Client, GatewayIntentBits } = require('discord.js');
 
@@ -72,7 +72,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
   session({
-    store: new SQLiteStore({ db: 'sessions.sqlite', dir: path.join(__dirname, 'db') }),
+   // store: new SQLiteStore({ db: 'sessions.sqlite', dir: path.join(__dirname, 'db') }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
